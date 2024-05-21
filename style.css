@@ -1,0 +1,30 @@
+
+.nav {
+    display: flex;
+    height: 90px;
+    justify-content: space-evenly;
+    width: 100%;
+    box-shadow: 0 14px 18px -19px rgba(0, 0, 0, 0.5);
+    background-color: #fff;
+    overflow: hidden;
+    align-items: center;
+    color: #151f2e;
+  }
+
+.logo{
+   max-width: 6em;
+
+
+}
+.navbar{
+    display: flex;
+    
+}
+.navbar .icon1 {
+    padding: 0 0 0 2.375em;
+}
+.navlink{
+    padding: 0 0 0 0.35em;
+
+}
+
