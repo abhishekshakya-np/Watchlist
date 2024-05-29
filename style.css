@@ -1,30 +1,457 @@
+.home-page {
+  display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+}
+
+.home-page {
+  width: 100%;
+  position: relative;
+  background-color: #edf1f5;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 0 0 0.044em;
+  line-height: normal;
+  letter-spacing: normal;
+}
 
 .nav {
-    display: flex;
-    height: 90px;
-    justify-content: space-evenly;
-    width: 100%;
-    box-shadow: 0 14px 18px -19px rgba(0, 0, 0, 0.5);
-    background-color: #fff;
-    overflow: hidden;
-    align-items: center;
-    color: #151f2e;
+  align-self: stretch;
+  align-items: flex-start;
+  justify-content: flex-start;
+  max-width: 100%;
+  box-shadow: 0 14px 18px -19px rgba(0, 0, 0, 0.5);
+  background-color: #fff;
+}
+
+.container {
+  overflow: hidden;
+  padding: 0 1.25em;
+  text-align: left;
+  color: #151f2e;
+  font-family: Roboto;
+  width: 100%;
+  justify-content: space-between;
+  max-width: 75em;
+  gap: 0;
+  row-gap: 20px;
+}
+
+.container,
+.nav {
+  box-sizing: border-box;
+}
+
+/* logo */
+.container1,
+.container2 {
+  display: flex;
+  flex-direction: column;
+}
+
+.container1 {
+  display: flex;
+
+  flex-direction: column;
+  flex-direction: row;
+
+  width: 9em;
+
+  align-items: flex-start;
+  align-items: center;
+
+  justify-content: center;
+  justify-content: flex-start;
+
+  padding: 1.25em 0.875em 0.125em;
+
+  box-sizing: border-box;
+
+  /* max-width: 75em;
+  max-width: 7.25em; */
+
+  align-self: stretch;
+  
+  /* flex: 1; */
+  overflow: hidden;
+  
+}
+
+.lockup-orangesvg-icon {
+  align-self: stretch;
+  height: 2em;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+
+
+
+.button-help,
+.nav-menu-list {
+  display: flex;
+  flex-direction: row;
+}
+.button-help {
+  border-top: 3px solid #fff;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1.875em 0 1.95em;
+}
+.nav-menu-list {
+  display: flex;
+  /* flex-direction: column; */
+  align-items: flex-start;
+  align-self: stretch;
+  /* justify-content: flex-start;
+  justify-content: center; */
+  width: 50.2em;
+  
+  max-width: 75em;
+  
+  flex-wrap: wrap;
+  
+  justify-content: center;
+  padding: 0 1.25em;
+}
+
+.button-how-it-works {
+  display: flex;
+  flex-direction: row;
+  /* align-items: flex-start;
+  align-items: center; */
+  justify-content: flex-start;
+  padding: 1.875em 2.375em 1.938em 0.313em;
+  border-top: 3px solid #fff;
+  
+}
+
+
+.home {
+  position: relative;
+  font-size: 1.044em;
+  line-height: 1.617em;
+  display: inline-block;
+  min-width: 3.695em;
+}
+
+.button-menu {
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.219em 0 0.063em;
+}
+
+.icon {
+  height: 1.188em;
+  width: 0.988em;
+  position: relative;
+ 
+  flex-shrink: 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.container,
+.container17 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+
+
+/* media  */
+
+@media screen and (max-width: 1900px) {
+
+  .container,
+  .container29,
+  .container36 {
+    max-width: 100%;
   }
 
-.logo{
-   max-width: 6em;
+  .container34 {
+    height: auto;
+  }
 
-
-}
-.navbar{
-    display: flex;
-    
-}
-.navbar .icon1 {
-    padding: 0 0 0 2.375em;
-}
-.navlink{
-    padding: 0 0 0 0.35em;
-
+  .container274,
+  .container34 {
+    max-width: 100%;
+  }
 }
 
+@media screen and (max-width: 1425px) {
+
+  .container,
+  .container1,
+  .container3 {
+    max-width: 100%;
+  }
+
+  .container28 {
+    padding-left: 1.875em;
+    padding-right: 1.875em;
+    box-sizing: border-box;
+  }
+
+  .card-containers-parent {
+    min-width: 100%;
+  }
+
+  .container36 {
+    padding-bottom: 3.438em;
+    box-sizing: border-box;
+  }
+
+  .container35 {
+    padding-left: 1.875em;
+    padding-right: 1.875em;
+    box-sizing: border-box;
+  }
+
+  .container34 {
+    padding-top: 1.313em;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .container274 {
+    padding-left: 3.125em;
+    padding-right: 3.125em;
+    box-sizing: border-box;
+  }
+}
+
+@media screen and (max-width: 950px) {
+  .container {
+    max-width: 100%;
+  }
+
+  .delicious-in-dungeon {
+    font-size: 2.375em;
+    line-height: 1.316em;
+  }
+
+  .card-containers-parent {
+    gap: 1.125em;
+  }
+
+  .container36 {
+    padding-bottom: 2.25em;
+    box-sizing: border-box;
+  }
+
+  .container34 {
+    padding-top: 1.25em;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .container274 {
+    padding-left: 1.563em;
+    padding-right: 1.563em;
+    box-sizing: border-box;
+  }
+}
+
+@media screen and (max-width: 450px) {
+  .container {
+    max-width: 100%;
+  }
+
+  .delicious-in-dungeon {
+    font-size: 1.813em;
+    line-height: 1.276em;
+  }
+
+  .continue-watching,
+  .symbol9 {
+    font-size: 1.125em;
+    line-height: 1em;
+  }
+
+  .container37 {
+    flex-wrap: wrap;
+  }
+
+  .latest-episode {
+    font-size: 1.125em;
+    line-height: 1.278em;
+  }
+
+  .container87 {
+    flex-wrap: wrap;
+  }
+
+  .new-on-hianime {
+    font-size: 1.125em;
+    line-height: 1.278em;
+  }
+
+  .container139 {
+    flex-wrap: wrap;
+  }
+
+  .top-upcoming {
+    font-size: 1.125em;
+    line-height: 1.278em;
+  }
+
+  .container191 {
+    flex-wrap: wrap;
+  }
+
+  .genres,
+  .top-5 {
+    font-size: 1.125em;
+    line-height: 1.278em;
+  }
+
+  .container245 {
+    flex-wrap: wrap;
+  }
+
+  .div {
+    font-size: 1em;
+    line-height: 1.188em;
+  }
+
+  .background4 {
+    flex: 1;
+  }
+
+  .container250 {
+    flex-wrap: wrap;
+    padding-right: 1.25em;
+    box-sizing: border-box;
+  }
+
+  .container249 {
+    height: auto;
+  }
+
+  .div1 {
+    font-size: 1em;
+    line-height: 1.188em;
+  }
+
+  .background6 {
+    flex: 1;
+  }
+
+  .container253 {
+    flex-wrap: wrap;
+    padding-right: 1.25em;
+    box-sizing: border-box;
+  }
+
+  .container252 {
+    height: auto;
+  }
+
+  .div2 {
+    font-size: 1em;
+    line-height: 1.188em;
+  }
+
+  .background8 {
+    flex: 1;
+  }
+
+  .container256 {
+    flex-wrap: wrap;
+    padding-right: 1.25em;
+    box-sizing: border-box;
+  }
+
+  .container255 {
+    height: auto;
+  }
+
+  .div3 {
+    font-size: 1em;
+    line-height: 1.188em;
+  }
+
+  .background10 {
+    flex: 1;
+  }
+
+  .container259 {
+    flex-wrap: wrap;
+    padding-right: 1.25em;
+    box-sizing: border-box;
+  }
+
+  .container258 {
+    height: auto;
+  }
+
+  .div4 {
+    font-size: 1em;
+    line-height: 1.188em;
+  }
+
+  .background12 {
+    flex: 1;
+  }
+
+  .container262 {
+    flex-wrap: wrap;
+    padding-right: 1.25em;
+    box-sizing: border-box;
+  }
+
+  .container261 {
+    height: auto;
+  }
+
+  .trending-notes {
+    font-size: 1.125em;
+    line-height: 1.278em;
+  }
+
+  .container263 {
+    flex-wrap: wrap;
+  }
+
+  .frame-parent {
+    gap: 1.5em;
+  }
+
+  .container34 {
+    max-width: 100%;
+  }
+}
