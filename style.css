@@ -1,19 +1,16 @@
-.home-page {
+.nav-page {
   display: flex;
   align-items: flex-start;
   box-sizing: border-box;
-}
-
-.home-page {
   width: 100%;
-  position: relative;
-  background-color: #edf1f5;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 0 0 0.044em;
+  padding: 0 0 2.044em;
   line-height: normal;
   letter-spacing: normal;
 }
+
+
 
 .nav {
   align-self: stretch;
@@ -24,23 +21,22 @@
   background-color: #fff;
 }
 
-.container {
-  overflow: hidden;
-  padding: 0 1.25em;
-  text-align: left;
+
+
+.head {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0px 11.25em 1.25em;
   color: #151f2e;
   font-family: Roboto;
   width: 100%;
   justify-content: space-between;
-  max-width: 75em;
-  gap: 0;
-  row-gap: 20px;
+
 }
 
-.container,
-.nav {
-  box-sizing: border-box;
-}
+
+
 
 /* logo */
 .container1,
@@ -71,14 +67,13 @@
   max-width: 7.25em; */
 
   align-self: stretch;
-  
+
   /* flex: 1; */
   overflow: hidden;
-  
+
 }
 
 .lockup-orangesvg-icon {
-  align-self: stretch;
   height: 2em;
   position: relative;
   max-width: 100%;
@@ -87,7 +82,38 @@
   object-fit: cover;
 }
 
+.🤳 {
+  display: flex;
+  width: 7.463em;
 
+  box-sizing: border-box;
+  max-width: 15.75em;
+  text-align: center;
+  color: #fff;
+  border-radius: 8px;
+  background-color: #fff;
+  border: 2px solid #151f2e;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.688em 1.5em;
+  cursor: pointer;
+}
+
+.log-in {
+  position: relative;
+  font-size: 1.25em;
+  line-height: 1em;
+  font-family: Roboto;
+  color: #151f2e;
+  text-align: center;
+  display: inline-block;
+  text-decoration: none;
+  min-width: 2.75em;
+  white-space: nowrap;
+
+
+}
 
 
 .button-help,
@@ -95,12 +121,14 @@
   display: flex;
   flex-direction: row;
 }
+
 .button-help {
   border-top: 3px solid #fff;
   align-items: center;
   justify-content: flex-start;
   padding: 1.875em 0 1.95em;
 }
+
 .nav-menu-list {
   display: flex;
   /* flex-direction: column; */
@@ -109,11 +137,11 @@
   /* justify-content: flex-start;
   justify-content: center; */
   width: 50.2em;
-  
+
   max-width: 75em;
-  
+
   flex-wrap: wrap;
-  
+
   justify-content: center;
   padding: 0 1.25em;
 }
@@ -126,13 +154,13 @@
   justify-content: flex-start;
   padding: 1.875em 2.375em 1.938em 0.313em;
   border-top: 3px solid #fff;
-  
+
 }
 
 
 .home {
   position: relative;
-  font-size: 1.044em;
+  font-size: 2.04em;
   line-height: 1.617em;
   display: inline-block;
   min-width: 3.695em;
@@ -141,7 +169,6 @@
 .button-menu {
   display: flex;
   justify-content: flex-start;
-  flex-direction: column;
   align-items: center;
   padding: 0.219em 0 0.063em;
 }
@@ -150,308 +177,479 @@
   height: 1.188em;
   width: 0.988em;
   position: relative;
- 
+
   flex-shrink: 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-.container,
-.container17 {
+.banner {
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  flex: 1;
+  padding: 0 10.75em;
+  height: 50.5em;
+  position: relative;
+  background-color: #201f31;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  font-family: Poppins;
+}
+
+.bg {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+
+}
+
+.spotlight {
+  margin: 0;
+  position: relative;
+  top: 8.072em;
+  left: 0;
+  font-size: 2.125em;
+  line-height: 1.333em;
+  font-weight: 400;
+  font-family: inherit;
+  color: #ffbade;
+  display: flex;
   align-items: center;
+  min-width: 6.111em;
+  max-width: 75em;
 }
 
+.name {
+  /* position: absolute; */
+  position: relative;
+  top: 4.719em;
+  left: 0;
+  width: 50em;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 0.006em;
+  box-sizing: border-box;
+  z-index: 1;
+  margin: 0;
 
-
-/* media  */
-
-@media screen and (max-width: 1900px) {
-
-  .container,
-  .container29,
-  .container36 {
-    max-width: 100%;
-  }
-
-  .container34 {
-    height: auto;
-  }
-
-  .container274,
-  .container34 {
-    max-width: 100%;
-  }
+  font-size: 4em;
+  line-height: 1.313em;
+  font-weight: 700;
+  font-family: inherit;
+  max-width: 75em;
 }
 
-@media screen and (max-width: 1425px) {
+.symbol {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(11, auto);
+  grid-column-gap: 1rem;
+  top: 11.602em;
+  font-size: 1.8em;
+  line-height: 1.016em;
+  font-family: "Font Awesome 5 Free";
+  min-width: 1.016em;
 
-  .container,
-  .container1,
-  .container3 {
-    max-width: 100%;
-  }
 
-  .container28 {
-    padding-left: 1.875em;
-    padding-right: 1.875em;
-    box-sizing: border-box;
-  }
-
-  .card-containers-parent {
-    min-width: 100%;
-  }
-
-  .container36 {
-    padding-bottom: 3.438em;
-    box-sizing: border-box;
-  }
-
-  .container35 {
-    padding-left: 1.875em;
-    padding-right: 1.875em;
-    box-sizing: border-box;
-  }
-
-  .container34 {
-    padding-top: 1.313em;
-    box-sizing: border-box;
-    max-width: 100%;
-  }
-
-  .container274 {
-    padding-left: 3.125em;
-    padding-right: 3.125em;
-    box-sizing: border-box;
-  }
 }
 
-@media screen and (max-width: 950px) {
-  .container {
-    max-width: 100%;
-  }
+.description {
+  /* position: absolute; */
+  position: relative;
+  top: 10.602em;
+  left: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 1.125em 0.038em 0;
+  z-index: 1;
 
-  .delicious-in-dungeon {
-    font-size: 2.375em;
-    line-height: 1.316em;
-  }
-
-  .card-containers-parent {
-    gap: 1.125em;
-  }
-
-  .container36 {
-    padding-bottom: 2.25em;
-    box-sizing: border-box;
-  }
-
-  .container34 {
-    padding-top: 1.25em;
-    box-sizing: border-box;
-    max-width: 100%;
-  }
-
-  .container274 {
-    padding-left: 1.563em;
-    padding-right: 1.563em;
-    box-sizing: border-box;
-  }
+  font-size: 1.95em;
+  line-height: 1.6em;
+  font-weight: 300;
+  max-width: 55em;
 }
 
-@media screen and (max-width: 450px) {
-  .container {
-    max-width: 100%;
-  }
+.👓 {
+  position: relative;
+  top: 20.819em;
+  display: flex;
+  overflow: hidden;
+  padding: 0 1.25em;
+  text-align: left;
+  color: #ffffff;
+  font-family: Roboto;
+  max-width: 75em;
+  gap: 20px;
 
-  .delicious-in-dungeon {
-    font-size: 1.813em;
-    line-height: 1.276em;
-  }
-
-  .continue-watching,
-  .symbol9 {
-    font-size: 1.125em;
-    line-height: 1em;
-  }
-
-  .container37 {
-    flex-wrap: wrap;
-  }
-
-  .latest-episode {
-    font-size: 1.125em;
-    line-height: 1.278em;
-  }
-
-  .container87 {
-    flex-wrap: wrap;
-  }
-
-  .new-on-hianime {
-    font-size: 1.125em;
-    line-height: 1.278em;
-  }
-
-  .container139 {
-    flex-wrap: wrap;
-  }
-
-  .top-upcoming {
-    font-size: 1.125em;
-    line-height: 1.278em;
-  }
-
-  .container191 {
-    flex-wrap: wrap;
-  }
-
-  .genres,
-  .top-5 {
-    font-size: 1.125em;
-    line-height: 1.278em;
-  }
-
-  .container245 {
-    flex-wrap: wrap;
-  }
-
-  .div {
-    font-size: 1em;
-    line-height: 1.188em;
-  }
-
-  .background4 {
-    flex: 1;
-  }
-
-  .container250 {
-    flex-wrap: wrap;
-    padding-right: 1.25em;
-    box-sizing: border-box;
-  }
-
-  .container249 {
-    height: auto;
-  }
-
-  .div1 {
-    font-size: 1em;
-    line-height: 1.188em;
-  }
-
-  .background6 {
-    flex: 1;
-  }
-
-  .container253 {
-    flex-wrap: wrap;
-    padding-right: 1.25em;
-    box-sizing: border-box;
-  }
-
-  .container252 {
-    height: auto;
-  }
-
-  .div2 {
-    font-size: 1em;
-    line-height: 1.188em;
-  }
-
-  .background8 {
-    flex: 1;
-  }
-
-  .container256 {
-    flex-wrap: wrap;
-    padding-right: 1.25em;
-    box-sizing: border-box;
-  }
-
-  .container255 {
-    height: auto;
-  }
-
-  .div3 {
-    font-size: 1em;
-    line-height: 1.188em;
-  }
-
-  .background10 {
-    flex: 1;
-  }
-
-  .container259 {
-    flex-wrap: wrap;
-    padding-right: 1.25em;
-    box-sizing: border-box;
-  }
-
-  .container258 {
-    height: auto;
-  }
-
-  .div4 {
-    font-size: 1em;
-    line-height: 1.188em;
-  }
-
-  .background12 {
-    flex: 1;
-  }
-
-  .container262 {
-    flex-wrap: wrap;
-    padding-right: 1.25em;
-    box-sizing: border-box;
-  }
-
-  .container261 {
-    height: auto;
-  }
-
-  .trending-notes {
-    font-size: 1.125em;
-    line-height: 1.278em;
-  }
-
-  .container263 {
-    flex-wrap: wrap;
-  }
-
-  .frame-parent {
-    gap: 1.5em;
-  }
-
-  .container34 {
-    max-width: 100%;
-  }
 }
+
+.slide {
+  position: absolute;
+  top: 0;
+  left: 110.188em;
+  width: 77.438em;
+  height: 50.5em;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 1.438em 0 1.438em 74.938em;
+  box-sizing: border-box;
+  gap: 0.375em;
+  text-align: center;
+  font-family: "Font Awesome 5 Free";
+
+.🎬 {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    margin: 0 !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-width: 100%;
+    overflow: hidden;
+    max-height: 100%;
+    object-fit: cover;
+  }
+
+.⬅ {
+  align-self: stretch;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.625em 0.938em 0.75em;
+  z-index: 2;
+  margin: 0;
+  position: relative;
+  font-size: 1.125em;
+  line-height: 1em;
+  font-weight: 400;
+  font-family: inherit;
+  display: inline-block;
+  min-width: 0.5em;
+}
+  
+
+  .➡ {
+    align-self: stretch;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.625em 0.938em 0.75em;
+  z-index: 2;
+  margin: 0;
+  position: relative;
+  font-size: 1.125em;
+  line-height: 1em;
+  font-weight: 400;
+  font-family: inherit;
+  display: inline-block;
+  min-width: 0.5em;
+
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /* media  */
+
+  @media screen and (max-width: 1900px) {
+
+    .container,
+    .container29,
+    .container36 {
+      max-width: 100%;
+    }
+
+    .container34 {
+      height: auto;
+    }
+
+    .container274,
+    .container34 {
+      max-width: 100%;
+    }
+  }
+
+  @media screen and (max-width: 1425px) {
+
+    .container,
+    .container1,
+    .container3 {
+      max-width: 100%;
+    }
+
+    .container28 {
+      padding-left: 1.875em;
+      padding-right: 1.875em;
+      box-sizing: border-box;
+    }
+
+    .card-containers-parent {
+      min-width: 100%;
+    }
+
+    .container36 {
+      padding-bottom: 3.438em;
+      box-sizing: border-box;
+    }
+
+    .container35 {
+      padding-left: 1.875em;
+      padding-right: 1.875em;
+      box-sizing: border-box;
+    }
+
+    .container34 {
+      padding-top: 1.313em;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .container274 {
+      padding-left: 3.125em;
+      padding-right: 3.125em;
+      box-sizing: border-box;
+    }
+  }
+
+  @media screen and (max-width: 950px) {
+    .container {
+      max-width: 100%;
+    }
+
+    .delicious-in-dungeon {
+      font-size: 2.375em;
+      line-height: 1.316em;
+    }
+
+    .card-containers-parent {
+      gap: 1.125em;
+    }
+
+    .container36 {
+      padding-bottom: 2.25em;
+      box-sizing: border-box;
+    }
+
+    .container34 {
+      padding-top: 1.25em;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .container274 {
+      padding-left: 1.563em;
+      padding-right: 1.563em;
+      box-sizing: border-box;
+    }
+  }
+
+  @media screen and (max-width: 450px) {
+    .container {
+      max-width: 100%;
+    }
+
+    .delicious-in-dungeon {
+      font-size: 1.813em;
+      line-height: 1.276em;
+    }
+
+    .continue-watching,
+    .symbol9 {
+      font-size: 1.125em;
+      line-height: 1em;
+    }
+
+    .container37 {
+      flex-wrap: wrap;
+    }
+
+    .latest-episode {
+      font-size: 1.125em;
+      line-height: 1.278em;
+    }
+
+    .container87 {
+      flex-wrap: wrap;
+    }
+
+    .new-on-hianime {
+      font-size: 1.125em;
+      line-height: 1.278em;
+    }
+
+    .container139 {
+      flex-wrap: wrap;
+    }
+
+    .top-upcoming {
+      font-size: 1.125em;
+      line-height: 1.278em;
+    }
+
+    .container191 {
+      flex-wrap: wrap;
+    }
+
+    .genres,
+    .top-5 {
+      font-size: 1.125em;
+      line-height: 1.278em;
+    }
+
+    .container245 {
+      flex-wrap: wrap;
+    }
+
+    .div {
+      font-size: 1em;
+      line-height: 1.188em;
+    }
+
+    .background4 {
+      flex: 1;
+    }
+
+    .container250 {
+      flex-wrap: wrap;
+      padding-right: 1.25em;
+      box-sizing: border-box;
+    }
+
+    .container249 {
+      height: auto;
+    }
+
+    .div1 {
+      font-size: 1em;
+      line-height: 1.188em;
+    }
+
+    .background6 {
+      flex: 1;
+    }
+
+    .container253 {
+      flex-wrap: wrap;
+      padding-right: 1.25em;
+      box-sizing: border-box;
+    }
+
+    .container252 {
+      height: auto;
+    }
+
+    .div2 {
+      font-size: 1em;
+      line-height: 1.188em;
+    }
+
+    .background8 {
+      flex: 1;
+    }
+
+    .container256 {
+      flex-wrap: wrap;
+      padding-right: 1.25em;
+      box-sizing: border-box;
+    }
+
+    .container255 {
+      height: auto;
+    }
+
+    .div3 {
+      font-size: 1em;
+      line-height: 1.188em;
+    }
+
+    .background10 {
+      flex: 1;
+    }
+
+    .container259 {
+      flex-wrap: wrap;
+      padding-right: 1.25em;
+      box-sizing: border-box;
+    }
+
+    .container258 {
+      height: auto;
+    }
+
+    .div4 {
+      font-size: 1em;
+      line-height: 1.188em;
+    }
+
+    .background12 {
+      flex: 1;
+    }
+
+    .container262 {
+      flex-wrap: wrap;
+      padding-right: 1.25em;
+      box-sizing: border-box;
+    }
+
+    .container261 {
+      height: auto;
+    }
+
+    .trending-notes {
+      font-size: 1.125em;
+      line-height: 1.278em;
+    }
+
+    .container263 {
+      flex-wrap: wrap;
+    }
+
+    .frame-parent {
+      gap: 1.5em;
+    }
+
+    .container34 {
+      max-width: 100%;
+    }
+  }
