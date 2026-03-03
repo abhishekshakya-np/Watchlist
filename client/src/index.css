@@ -57,7 +57,14 @@ input, select {
 }
 input::placeholder { color: var(--text-muted); }
 
-/* Layout */
+/* Layout
+   Centered content: min-width + max-width + margin: 0 auto
+   - max-width: content never wider than this; extra viewport space becomes side margins
+   - width: 100%: below max-width, content uses full available width
+   - margin: 0 auto: equal left/right auto margins center the block when viewport > max-width
+   - min-width (optional): content never narrower than this on very small screens
+   See docs/CENTERED_CONTENT_LAYOUT.md for full explanation.
+*/
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -65,10 +72,15 @@ input::placeholder { color: var(--text-muted); }
 }
 .app-main {
   flex: 1;
+  min-width: 280px;
   max-width: 1400px;
-  margin: 0 auto;
   width: 100%;
-  padding: var(--space-lg);
+  margin: 0 auto;
+  padding: clamp(var(--space-lg), 4vw, var(--space-xl)) clamp(var(--space-lg), 5vw, 32px);
+}
+.main-content-inner {
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 /* Header */
@@ -137,7 +149,7 @@ input::placeholder { color: var(--text-muted); }
 .two-col {
   display: grid;
   grid-template-columns: 1fr 280px;
-  gap: var(--space-xl);
+  gap: clamp(var(--space-xl), 4vw, 32px);
   align-items: start;
 }
 @media (max-width: 900px) {
@@ -148,11 +160,11 @@ input::placeholder { color: var(--text-muted); }
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space);
+  gap: var(--space-lg);
   align-items: center;
   padding: var(--space-lg) 0;
   border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-lg);
+  margin-bottom: clamp(var(--space-lg), 3vw, var(--space-xl));
 }
 .filter-bar .chips {
   display: flex;
@@ -172,16 +184,20 @@ input::placeholder { color: var(--text-muted); }
 }
 .filter-bar .chip button { padding: 0 4px; border: none; background: none; color: inherit; font-size: 14px; }
 
+/* Page content wrapper for consistent design space */
+.page-content { width: 100%; }
+
 /* Empty state */
 .empty-state {
   text-align: center;
-  padding: var(--space-xl) * 2;
+  padding: clamp(var(--space-xl), 6vw, 48px) var(--space-lg);
   color: var(--text-muted);
 }
 .empty-state h3 { color: var(--text); margin-bottom: var(--space); }
+.empty-state p { margin: 0; max-width: 360px; margin-left: auto; margin-right: auto; }
 
-.page-title { margin: 0 0 var(--space-lg); font-size: 1.5rem; }
-.loading { color: var(--text-muted); }
+.page-title { margin: 0 0 clamp(var(--space-lg), 3vw, var(--space-xl)); font-size: 1.5rem; font-weight: 600; }
+.loading { color: var(--text-muted); padding: var(--space-xl) 0; }
 .error { color: #ef4444; }
 .title-list { list-style: none; padding: 0; margin: 0; }
 .title-list li { margin: 0; }
@@ -272,11 +288,74 @@ input::placeholder { color: var(--text-muted); }
 .list-item-title:hover { color: var(--accent); text-decoration: none; }
 .list-item-meta { font-size: 13px; color: var(--text-muted); display: block; margin-top: 2px; }
 
-.form-add-title { max-width: 480px; }
-.form-add-title label.form-label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px; margin-top: var(--space-lg); }
-.form-add-title label.form-label:first-of-type { margin-top: 0; }
-.form-add-title input, .form-add-title select, .form-add-title textarea { width: 100%; margin-bottom: var(--space); }
-.form-add-title button { margin-top: var(--space-lg); }
+/* Add title / form: full width, 2–4 fields per row */
+.form-add-title {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg) clamp(var(--space-lg), 4vw, var(--space-xl));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(var(--space-xl), 5vw, 40px);
+  margin-top: var(--space-lg);
+}
+@media (min-width: 640px) {
+  .form-add-title { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 900px) {
+  .form-add-title { grid-template-columns: repeat(4, 1fr); }
+}
+.form-section-title {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: var(--space-xl) 0 0 0;
+  padding-bottom: var(--space);
+  border-bottom: 1px solid var(--border);
+}
+.form-section-title:first-child { margin-top: 0; }
+.form-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.form-field-span-2 { grid-column: span 2; }
+@media (min-width: 640px) {
+  .form-field-span-2 { grid-column: span 2; }
+}
+@media (min-width: 900px) {
+  .form-field-span-2 { grid-column: span 2; }
+}
+.form-add-title .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.form-add-title input,
+.form-add-title select,
+.form-add-title textarea {
+  width: 100%;
+  padding: 10px 14px;
+}
+.form-add-title textarea { min-height: 80px; resize: vertical; }
+.form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #ef4444;
+  font-size: 14px;
+}
+.form-submit {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: var(--space);
+  padding: 10px 20px;
+}
 
 /* TitleCard */
 .title-card { display: flex; gap: var(--space-lg); padding: var(--space-lg) 0; border-bottom: 1px solid var(--border); }
@@ -304,7 +383,13 @@ input::placeholder { color: var(--text-muted); }
 .sidebar-block-list { list-style: none; padding: 0; margin: 0; }
 .sidebar-block-more { display: block; margin-top: var(--space); font-size: 13px; text-align: center; }
 .detail-hero { position: relative; margin: calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg)) var(--space-xl); }
-.detail-hero-banner { height: 200px; background: linear-gradient(135deg, var(--bg-elevated), var(--bg-card)); background-size: cover; background-position: center; }
+.detail-hero-banner {
+  height: 200px;
+  background: linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-card) 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 .detail-hero-content { display: flex; gap: var(--space-xl); padding: 0 var(--space-lg); margin-top: -80px; position: relative; align-items: flex-end; }
 .detail-hero-cover { width: 140px; height: 200px; flex-shrink: 0; border-radius: var(--radius); background: var(--bg-card); background-size: cover; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 .detail-hero-title { margin: 0 0 4px; font-size: 1.75rem; }

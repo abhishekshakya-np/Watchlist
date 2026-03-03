@@ -201,7 +201,9 @@ function Layout() {
           </div>
         </div>
       </header>
-      <main className="app-main"><Outlet /></main>
+      <main className="app-main">
+        <div className="main-content-inner"><Outlet /></div>
+      </main>
       <footer className="site-footer">
         <div className="site-footer-inner">
           <p className="site-footer-credit">
@@ -423,7 +425,7 @@ function Backup() {
 
 function AddTitle() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ title: '', slug: '', media_type: 'series', format: '', release_status: 'finished', release_date: '', description: '', cover_image: '' });
+  const [form, setForm] = useState({ title: '', slug: '', media_type: 'series', format: '', release_status: 'finished', release_date: '', description: '', cover_image: '', banner_image: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const handleSubmit = async (e) => {
@@ -431,34 +433,57 @@ function AddTitle() {
     if (!form.title.trim()) return;
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: form.title.trim(), slug: form.slug.trim() || undefined, media_type: form.media_type, format: form.format.trim() || undefined, release_status: form.release_status, release_date: form.release_date || undefined, description: form.description.trim() || undefined, cover_image: form.cover_image.trim() || undefined }) });
+      const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: form.title.trim(), slug: form.slug.trim() || undefined, media_type: form.media_type, format: form.format.trim() || undefined, release_status: form.release_status, release_date: form.release_date || undefined, description: form.description.trim() || undefined, cover_image: form.cover_image.trim() || undefined, banner_image: form.banner_image.trim() || undefined }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || r.statusText);
       navigate(`/title/${data.slug}`);
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
   return (
-    <div>
+    <div className="page-content">
       <h2 className="page-title">Add title</h2>
       <form onSubmit={handleSubmit} className="form-add-title">
-        <label className="form-label">Title *</label>
-        <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Primary title" required />
-        <label className="form-label">Slug (optional)</label>
-        <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="url-slug" />
-        <label className="form-label">Media type</label>
-        <select value={form.media_type} onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}><option value="series">Series</option><option value="movie">Movie</option><option value="game">Game</option><option value="book">Book</option></select>
-        <label className="form-label">Format (optional)</label>
-        <input value={form.format} onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))} placeholder="e.g. TV, RPG" />
-        <label className="form-label">Release status</label>
-        <select value={form.release_status} onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}><option value="releasing">Releasing</option><option value="finished">Finished</option><option value="not_yet_released">Not yet released</option><option value="cancelled">Cancelled</option></select>
-        <label className="form-label">Release date (optional)</label>
-        <input type="date" value={form.release_date} onChange={(e) => setForm((f) => ({ ...f, release_date: e.target.value }))} />
-        <label className="form-label">Cover image URL (optional)</label>
-        <input type="url" value={form.cover_image} onChange={(e) => setForm((f) => ({ ...f, cover_image: e.target.value }))} placeholder="https://…" />
-        <label className="form-label">Description (optional)</label>
-        <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description" rows={3} style={{ width: '100%', resize: 'vertical' }} />
-        {error && <p className="error">{error}</p>}
-        <button type="submit" className="primary" disabled={loading}>{loading ? 'Adding…' : 'Add title'}</button>
+        <p className="form-section-title">Basics</p>
+        <div className="form-field">
+          <label className="form-label">Title *</label>
+          <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Primary title" required />
+        </div>
+        <div className="form-field">
+          <label className="form-label">Slug (optional)</label>
+          <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="url-slug" />
+        </div>
+        <div className="form-field">
+          <label className="form-label">Media type</label>
+          <select value={form.media_type} onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}><option value="series">Series</option><option value="movie">Movie</option><option value="game">Game</option><option value="book">Book</option></select>
+        </div>
+        <div className="form-field">
+          <label className="form-label">Format (optional)</label>
+          <input value={form.format} onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))} placeholder="e.g. TV, RPG" />
+        </div>
+        <p className="form-section-title">Publication</p>
+        <div className="form-field">
+          <label className="form-label">Release status</label>
+          <select value={form.release_status} onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}><option value="releasing">Releasing</option><option value="finished">Finished</option><option value="not_yet_released">Not yet released</option><option value="cancelled">Cancelled</option></select>
+        </div>
+        <div className="form-field">
+          <label className="form-label">Release date (optional)</label>
+          <input type="date" value={form.release_date} onChange={(e) => setForm((f) => ({ ...f, release_date: e.target.value }))} />
+        </div>
+        <p className="form-section-title">Media & description</p>
+        <div className="form-field">
+          <label className="form-label">Cover image URL (optional)</label>
+          <input type="url" value={form.cover_image} onChange={(e) => setForm((f) => ({ ...f, cover_image: e.target.value }))} placeholder="https://…" />
+        </div>
+        <div className="form-field">
+          <label className="form-label">Hero banner URL (optional)</label>
+          <input type="url" value={form.banner_image} onChange={(e) => setForm((f) => ({ ...f, banner_image: e.target.value }))} placeholder="https://…" />
+        </div>
+        <div className="form-field form-field-span-2">
+          <label className="form-label">Description (optional)</label>
+          <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description" rows={3} />
+        </div>
+        {error && <p className="form-error">{error}</p>}
+        <button type="submit" className="primary form-submit" disabled={loading}>{loading ? 'Adding…' : 'Add title'}</button>
       </form>
     </div>
   );
