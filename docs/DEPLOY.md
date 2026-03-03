@@ -27,13 +27,27 @@ Make sure your Watchlist repo is on GitHub (e.g. [github.com/abhishekshakya-np/W
 5. Click **Create Web Service**. Render will install deps, build the client, and start the server.
 6. When it finishes, you’ll get a URL like **`https://watchlist-xxxx.onrender.com`**.
 
+### Step 2b: Keep data from vanishing (free PostgreSQL)
+
+On the free tier, Render’s **disk is ephemeral**: when the app sleeps or restarts, SQLite data is lost and titles disappear. To **persist data** (titles stay after sleep/restart):
+
+1. In the Render dashboard, click **New +** → **PostgreSQL**.
+2. Create a free database (same region as your web service is best). Note: free Postgres may have a 90-day limit; you can recreate or upgrade later.
+3. After the DB is created, open it and go to **Connect** → copy the **Internal Database URL** (use Internal if the web service is in the same region).
+4. Open your **Web Service** (watchlist) → **Environment** → **Add Environment Variable**:
+   - **Key:** `DATABASE_URL`
+   - **Value:** paste the Internal Database URL (starts with `postgresql://`).
+5. Click **Save Changes**. Render will redeploy; after deploy, the app uses PostgreSQL and **data persists** across restarts and sleep.
+
+You do **not** need to change any code or build command. The server automatically uses PostgreSQL when `DATABASE_URL` is set.
+
 ### Step 3: Use your public link
 
 - Open **that URL** on any device (phone, tablet, another country) — no login needed.
 - **Add titles** — they’re saved on the server.
 - **Everyone** who opens the same link sees the **same list** (shared). If someone else adds a title, you’ll see it too.
 
-**Free tier note:** On Render’s free plan the app may **sleep** after ~15 minutes of no use. The first visit after that can take 30–60 seconds to wake up. Data is stored in SQLite; on free tier the disk can be reset when the app restarts, so use **Backup** in the app regularly to download a JSON backup. For always-on + persistent data you can use **Railway** (with a volume) or another host; the same code works.
+**Free tier note:** The app may **sleep** after ~15 minutes of no use; the first visit after that can take 30–60 seconds to wake up. **Without** `DATABASE_URL`, data is stored in SQLite and can be lost on restart—use **Backup** in the app often. **With** `DATABASE_URL` (PostgreSQL), data persists.
 
 ---
 
