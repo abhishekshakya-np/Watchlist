@@ -119,7 +119,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// ----- Routes -----
+// ----- API routes -----
 app.get('/api/titles', (req, res) => {
   try {
     const { type, genre, status, year, sort = 'popularity', q } = req.query;
@@ -266,5 +266,18 @@ app.post('/api/backup/restore', (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+// ----- Serve built React app (one URL for API + app) -----
+const clientDist = join(__dirname, '..', 'client', 'dist');
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(join(clientDist, 'index.html'));
+  });
+}
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Watchlist API http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Watchlist API http://localhost:${PORT}`);
+  if (existsSync(clientDist)) console.log(`App served at http://localhost:${PORT} (open in browser)`);
+});

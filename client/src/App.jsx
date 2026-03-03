@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, NavLink, Link, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 
-const API = '/api';
+const API = import.meta.env.VITE_API_URL || '/api';
 const MEDIA_TYPES = [{ value: 'all', label: 'All' }, { value: 'series', label: 'Series' }, { value: 'movie', label: 'Movies' }, { value: 'game', label: 'Games' }, { value: 'book', label: 'Books' }];
 const RELEASE_STATUSES = [{ value: '', label: 'Any status' }, { value: 'releasing', label: 'Releasing' }, { value: 'finished', label: 'Finished' }, { value: 'not_yet_released', label: 'Not yet released' }, { value: 'cancelled', label: 'Cancelled' }];
 const SORT_OPTIONS = [{ value: 'popularity', label: 'Popularity' }, { value: 'release-newest', label: 'Release (newest)' }, { value: 'release-oldest', label: 'Release (oldest)' }, { value: 'score', label: 'Score (high)' }, { value: 'score-low', label: 'Score (low)' }, { value: 'title', label: 'Title A–Z' }];

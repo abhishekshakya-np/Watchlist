@@ -4,6 +4,8 @@
 
 **GitHub:** [abhishekshakya-np/Watchlist](https://github.com/abhishekshakya-np/Watchlist) · [Profile](https://github.com/abhishekshakya-np)
 
+**Free public link (one URL, shared data):** Deploy to [Render.com](https://render.com) (free) — see [docs/DEPLOY.md](docs/DEPLOY.md). You get a link like `https://watchlist-xxxx.onrender.com`; open it from any device or place. Anything you or others add is visible to everyone.
+
 ## What’s included
 
 - **Backend (1 file):** `server/server.js` — Node + Express + SQLite in a single file: schema, migrations, titles CRUD, feeds, user list, backup export/restore.
@@ -30,6 +32,16 @@ npm run dev
 ```
 
 App runs at **http://localhost:5173** and proxies `/api` to the server.
+
+### 3. Run app + API from one URL (for tunnel or deploy)
+
+Build the client, then start the server. The server will serve both the API and the built app at **http://localhost:3001**:
+
+```bash
+cd client && npm run build && cd ../server && node server.js
+```
+
+Open **http://localhost:3001** in your browser. To expose it (e.g. ngrok): `ngrok http 3001` and open the tunnel URL from any device. See [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ### Push to GitHub (abhishekshakya-np/Watchlist)
 

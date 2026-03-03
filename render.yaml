@@ -1,0 +1,12 @@
+# Render.com free tier — one public link, shared data for all users
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: watchlist
+    runtime: node
+    rootDir: .
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
