@@ -45,6 +45,8 @@ button {
 button:hover { background: #22222a; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { background: var(--accent-hover); }
+.btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn.secondary:hover { background: var(--bg-soft); }
 
 input, select {
   font-family: inherit;
@@ -318,6 +320,9 @@ input::placeholder { color: var(--text-muted); }
   border-bottom: 1px solid var(--border);
 }
 .form-section-title:first-child { margin-top: 0; }
+.form-description { margin-bottom: var(--space-lg); font-size: 14px; color: var(--text-muted); }
+.form-description a { color: var(--accent); }
+.form-description a:hover { text-decoration: underline; }
 .form-field {
   display: flex;
   flex-direction: column;
@@ -396,9 +401,13 @@ input::placeholder { color: var(--text-muted); }
 .detail-hero-alt { margin: 0 0 var(--space); font-size: 14px; color: var(--text-muted); }
 .detail-stats-row { display: flex; flex-wrap: wrap; gap: var(--space-lg); font-size: 14px; color: var(--text-muted); padding: var(--space-lg) 0; border-bottom: 1px solid var(--border); }
 .list-score-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); position: sticky; top: 80px; }
+.detail-actions { margin-bottom: var(--space-lg); }
+.detail-actions .btn { display: inline-block; font-size: 13px; padding: 6px 12px; }
 .widget-title { margin: 0 0 var(--space-lg); font-size: 0.95rem; }
 .widget-label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 .list-score-widget select, .list-score-widget input { width: 100%; margin-bottom: var(--space-lg); }
+.list-score-widget .btn-save-list { width: 100%; margin-bottom: var(--space); }
+.list-score-saved { font-size: 12px; color: var(--accent); margin-left: var(--space); }
 .btn-remove { margin-top: var(--space); font-size: 13px; color: var(--text-muted); }
 .btn-remove:hover { color: #ef4444; }
 .media-tabs-header { margin-left: auto; }

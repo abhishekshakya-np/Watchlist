@@ -12,6 +12,7 @@ const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Bo
 
 async function getTitles(params = {}) { const r = await fetch(`${API}/titles?${new URLSearchParams(params)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getTitleBySlug(slug) { const r = await fetch(`${API}/titles/slug/${encodeURIComponent(slug)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+async function updateTitle(id, body) { const r = await fetch(`${API}/titles/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
 async function getFeedTrending(type, limit = 8) { const r = await fetch(`${API}/titles/feed/trending?type=${type}&limit=${limit}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getFeedTop(type, limit = 8) { const r = await fetch(`${API}/titles/feed/top?type=${type}&limit=${limit}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getFeedRecent(type, limit = 8) { const r = await fetch(`${API}/titles/feed/recent?type=${type}&limit=${limit}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
@@ -153,7 +154,23 @@ function ListScoreWidget({ titleId, entry, onUpdate }) {
   const [score, setScore] = useState(entry?.score ?? '');
   const [progress, setProgress] = useState(entry?.progress ?? '');
   const [loading, setLoading] = useState(false);
-  const save = async (updates) => { setLoading(true); try { if (entry) await updateListEntry(titleId, updates); else await addToList(titleId, updates); onUpdate?.(); } finally { setLoading(false); } };
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setStatus(entry?.status || 'planning');
+    setScore(entry?.score ?? '');
+    setProgress(entry?.progress ?? '');
+  }, [entry?.status, entry?.score, entry?.progress]);
+  const save = async (updates) => {
+    setLoading(true); setSaved(false);
+    try {
+      if (entry) await updateListEntry(titleId, updates);
+      else await addToList(titleId, updates);
+      onUpdate?.();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally { setLoading(false); }
+  };
+  const handleSave = () => save({ status, score: score === '' ? undefined : score, progress: progress || undefined });
   const handleRemove = async () => { setLoading(true); try { await removeFromList(titleId); onUpdate?.(); } finally { setLoading(false); } };
   return (
     <div className="list-score-widget">
@@ -166,6 +183,8 @@ function ListScoreWidget({ titleId, entry, onUpdate }) {
           <input type="number" min={1} max={10} value={score} onChange={(e) => setScore(e.target.value === '' ? '' : Math.min(10, Math.max(1, Number(e.target.value))))} onBlur={() => save({ status, score: score === '' ? undefined : score, progress: progress || undefined })} disabled={loading} />
           <label className="widget-label">Progress</label>
           <input type="text" placeholder="e.g. 5/12 eps" value={progress} onChange={(e) => setProgress(e.target.value)} onBlur={() => save({ status, score: score || undefined, progress: progress || undefined })} disabled={loading} />
+          <button type="button" className="btn primary btn-save-list" onClick={handleSave} disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
+          {saved && <span className="list-score-saved">Saved</span>}
           <button type="button" className="btn-remove" onClick={handleRemove} disabled={loading}>Remove from list</button>
         </>
       ) : (
@@ -361,7 +380,12 @@ function TitleDetail() {
           {title.media_type === 'book' && (ts.author || ts.pages) && <section className="detail-section"><h3>Book info</h3><p>{ts.author && `Author: ${ts.author}`} {ts.pages && ` · ${ts.pages} pp`}</p></section>}
           {title.media_type === 'game' && (ts.platforms || ts.developer) && <section className="detail-section"><h3>Game info</h3><p>{Array.isArray(ts.platforms) ? ts.platforms.join(', ') : ts.platforms}{ts.developer && ` · ${ts.developer}`}</p></section>}
         </div>
-        <div className="detail-sidebar"><ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} /></div>
+        <div className="detail-sidebar">
+          <div className="detail-actions">
+            <Link to={`/title/${title.slug}/edit`} className="btn secondary">Edit title</Link>
+          </div>
+          <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} />
+        </div>
       </div>
     </div>
   );
@@ -423,68 +447,134 @@ function Backup() {
   );
 }
 
-function AddTitle() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ title: '', slug: '', media_type: 'series', format: '', release_status: 'finished', release_date: '', description: '', cover_image: '', banner_image: '' });
+const INIT_ADD_FORM = { title: '', slug: '', media_type: 'series', format: '', release_status: 'finished', release_date: '', description: '', description_short: '', cover_image: '', banner_image: '', alternate_title: '' };
+
+function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Saving…' }) {
+  const [form, setForm] = useState(initial || INIT_ADD_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.title.trim()) return;
+    if (!form.title?.trim()) return;
     setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: form.title.trim(), slug: form.slug.trim() || undefined, media_type: form.media_type, format: form.format.trim() || undefined, release_status: form.release_status, release_date: form.release_date || undefined, description: form.description.trim() || undefined, cover_image: form.cover_image.trim() || undefined, banner_image: form.banner_image.trim() || undefined }) });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || r.statusText);
-      navigate(`/title/${data.slug}`);
-    } catch (err) { setError(err.message); } finally { setLoading(false); }
+      const payload = { title: form.title.trim(), slug: form.slug?.trim() || undefined, media_type: form.media_type, format: form.format?.trim() || undefined, release_status: form.release_status, release_date: form.release_date || undefined, release_date_end: form.release_date_end || undefined, description: form.description?.trim() || undefined, description_short: form.description_short?.trim() || undefined, cover_image: form.cover_image?.trim() || undefined, banner_image: form.banner_image?.trim() || undefined, alternate_title: form.alternate_title?.trim() || undefined };
+      const data = await onSubmit(payload);
+      return data;
+    } catch (err) { setError(err.message); throw err; } finally { setLoading(false); }
+  };
+  return (
+    <form onSubmit={handleSubmit} className="form-add-title">
+      <p className="form-section-title">Basics</p>
+      <div className="form-field">
+        <label className="form-label">Title *</label>
+        <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Primary title" required />
+      </div>
+      <div className="form-field">
+        <label className="form-label">Slug (optional)</label>
+        <input value={form.slug || ''} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="url-slug" />
+      </div>
+      <div className="form-field">
+        <label className="form-label">Alternate title (optional)</label>
+        <input value={form.alternate_title || ''} onChange={(e) => setForm((f) => ({ ...f, alternate_title: e.target.value }))} placeholder="Alternative name" />
+      </div>
+      <div className="form-field">
+        <label className="form-label">Media type</label>
+        <select value={form.media_type} onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}><option value="series">Series</option><option value="movie">Movie</option><option value="game">Game</option><option value="book">Book</option></select>
+      </div>
+      <div className="form-field">
+        <label className="form-label">Format (optional)</label>
+        <input value={form.format || ''} onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))} placeholder="e.g. TV, RPG" />
+      </div>
+      <p className="form-section-title">Publication</p>
+      <div className="form-field">
+        <label className="form-label">Release status</label>
+        <select value={form.release_status} onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}><option value="releasing">Releasing</option><option value="finished">Finished</option><option value="not_yet_released">Not yet released</option><option value="cancelled">Cancelled</option></select>
+      </div>
+      <div className="form-field">
+        <label className="form-label">Release date (optional)</label>
+        <input type="date" value={form.release_date || ''} onChange={(e) => setForm((f) => ({ ...f, release_date: e.target.value }))} />
+      </div>
+      <div className="form-field">
+        <label className="form-label">Release date end (optional)</label>
+        <input type="date" value={form.release_date_end || ''} onChange={(e) => setForm((f) => ({ ...f, release_date_end: e.target.value }))} />
+      </div>
+      <p className="form-section-title">Media & description</p>
+      <div className="form-field">
+        <label className="form-label">Cover image URL (optional)</label>
+        <input type="url" value={form.cover_image || ''} onChange={(e) => setForm((f) => ({ ...f, cover_image: e.target.value }))} placeholder="https://…" />
+      </div>
+      <div className="form-field">
+        <label className="form-label">Hero banner URL (optional)</label>
+        <input type="url" value={form.banner_image || ''} onChange={(e) => setForm((f) => ({ ...f, banner_image: e.target.value }))} placeholder="https://…" />
+      </div>
+      <div className="form-field form-field-span-2">
+        <label className="form-label">Description (optional)</label>
+        <textarea value={form.description || ''} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Full description" rows={3} />
+      </div>
+      <div className="form-field form-field-span-2">
+        <label className="form-label">Short description (optional)</label>
+        <textarea value={form.description_short || ''} onChange={(e) => setForm((f) => ({ ...f, description_short: e.target.value }))} placeholder="One-line summary" rows={1} />
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      <button type="submit" className="primary form-submit" disabled={loading}>{loading ? loadingLabel : submitLabel}</button>
+    </form>
+  );
+}
+
+function AddTitle() {
+  const navigate = useNavigate();
+  const handleSubmit = async (payload) => {
+    const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    navigate(`/title/${data.slug}`);
+    return data;
   };
   return (
     <div className="page-content">
       <h2 className="page-title">Add title</h2>
-      <form onSubmit={handleSubmit} className="form-add-title">
-        <p className="form-section-title">Basics</p>
-        <div className="form-field">
-          <label className="form-label">Title *</label>
-          <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Primary title" required />
-        </div>
-        <div className="form-field">
-          <label className="form-label">Slug (optional)</label>
-          <input value={form.slug} onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))} placeholder="url-slug" />
-        </div>
-        <div className="form-field">
-          <label className="form-label">Media type</label>
-          <select value={form.media_type} onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}><option value="series">Series</option><option value="movie">Movie</option><option value="game">Game</option><option value="book">Book</option></select>
-        </div>
-        <div className="form-field">
-          <label className="form-label">Format (optional)</label>
-          <input value={form.format} onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))} placeholder="e.g. TV, RPG" />
-        </div>
-        <p className="form-section-title">Publication</p>
-        <div className="form-field">
-          <label className="form-label">Release status</label>
-          <select value={form.release_status} onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}><option value="releasing">Releasing</option><option value="finished">Finished</option><option value="not_yet_released">Not yet released</option><option value="cancelled">Cancelled</option></select>
-        </div>
-        <div className="form-field">
-          <label className="form-label">Release date (optional)</label>
-          <input type="date" value={form.release_date} onChange={(e) => setForm((f) => ({ ...f, release_date: e.target.value }))} />
-        </div>
-        <p className="form-section-title">Media & description</p>
-        <div className="form-field">
-          <label className="form-label">Cover image URL (optional)</label>
-          <input type="url" value={form.cover_image} onChange={(e) => setForm((f) => ({ ...f, cover_image: e.target.value }))} placeholder="https://…" />
-        </div>
-        <div className="form-field">
-          <label className="form-label">Hero banner URL (optional)</label>
-          <input type="url" value={form.banner_image} onChange={(e) => setForm((f) => ({ ...f, banner_image: e.target.value }))} placeholder="https://…" />
-        </div>
-        <div className="form-field form-field-span-2">
-          <label className="form-label">Description (optional)</label>
-          <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Short description" rows={3} />
-        </div>
-        {error && <p className="form-error">{error}</p>}
-        <button type="submit" className="primary form-submit" disabled={loading}>{loading ? 'Adding…' : 'Add title'}</button>
-      </form>
+      <TitleForm initial={INIT_ADD_FORM} onSubmit={handleSubmit} submitLabel="Add title" loadingLabel="Adding…" />
+    </div>
+  );
+}
+
+function EditTitle() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const [title, setTitle] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    setLoading(true); setError(null);
+    getTitleBySlug(slug).then(setTitle).catch((e) => setError(e.message)).finally(() => setLoading(false));
+  }, [slug]);
+  const handleSubmit = async (payload) => {
+    const data = await updateTitle(title.id, payload);
+    navigate(`/title/${data.slug}`);
+    return data;
+  };
+  if (loading) return <p className="loading">Loading…</p>;
+  if (error || !title) return <p className="error">{error || 'Title not found'}</p>;
+  const initial = {
+    title: title.title || '',
+    slug: title.slug || '',
+    media_type: title.media_type || 'series',
+    format: title.format || '',
+    release_status: title.release_status || 'finished',
+    release_date: title.release_date ? title.release_date.slice(0, 10) : '',
+    release_date_end: title.release_date_end ? title.release_date_end.slice(0, 10) : '',
+    description: title.description || '',
+    description_short: title.description_short || '',
+    cover_image: title.cover_image || '',
+    banner_image: title.banner_image || '',
+    alternate_title: title.alternate_title || '',
+  };
+  return (
+    <div className="page-content">
+      <h2 className="page-title">Edit title</h2>
+      <p className="form-description"><Link to={`/title/${title.slug}`}>← Back to {title.title}</Link></p>
+      <TitleForm initial={initial} onSubmit={handleSubmit} submitLabel="Save changes" loadingLabel="Saving…" />
     </div>
   );
 }
@@ -497,6 +587,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="browse" element={<Browse />} />
           <Route path="search" element={<Search />} />
+          <Route path="title/:slug/edit" element={<EditTitle />} />
           <Route path="title/:slug" element={<TitleDetail />} />
           <Route path="lists" element={<MyLists />} />
           <Route path="backup" element={<Backup />} />
