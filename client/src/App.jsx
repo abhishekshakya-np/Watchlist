@@ -21,6 +21,14 @@ async function addToList(titleId, opts = {}) { const r = await fetch(`${API}/use
 async function updateListEntry(titleId, opts) { const r = await fetch(`${API}/user/list/${titleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts) }); if (!r.ok) throw new Error((await r.json()).error || r.statusText); return r.json(); }
 async function removeFromList(titleId) { const r = await fetch(`${API}/user/list/${titleId}`, { method: 'DELETE' }); if (!r.ok) throw new Error((await r.json()).error || r.statusText); }
 async function getListEntry(titleId) { const r = await fetch(`${API}/user/list/entry/${titleId}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+async function lookupTitle(q, type) {
+  const r = await fetch(`${API}/lookup?${new URLSearchParams({ q, type })}`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText || 'Lookup failed');
+  const results = Array.isArray(data) ? data : (data.results || data.titles || []);
+  const error = Array.isArray(data) ? null : (data.error || null);
+  return { results: Array.isArray(results) ? results : [], error };
+}
 
 function TitleCard({ title, rank, showDescription = true, compact = false, grid = false }) {
   const slug = title.slug || title.id;
@@ -327,7 +335,13 @@ function TitleDetail() {
     getTitleBySlug(slug).then((t) => { setTitle(t); return getListEntry(t.id); }).then(setEntry).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, [slug]);
   if (loading) return <p className="loading">Loading…</p>;
-  if (error || !title) return <p className="error">{error || 'Not found'}</p>;
+  if (error || !title) return (
+    <div className="page-content">
+      <h2 className="page-title">Title not found</h2>
+      <p className="error">{error || 'This title doesn’t exist or was removed.'}</p>
+      <Link to="/" className="btn primary">Go to Home</Link>
+    </div>
+  );
   const ts = title.type_specific || {};
   const genres = Array.isArray(title.genres) ? title.genres : (title.genres ? [title.genres] : []);
   const tags = Array.isArray(title.tags) ? title.tags : (title.tags ? [title.tags] : []);
@@ -432,17 +446,82 @@ function MyLists() {
 
 function Backup() {
   const [error, setError] = useState(null);
-  const downloadBackup = async () => { setError(null); try { const r = await fetch(`${API}/backup/export`); if (!r.ok) throw new Error(await r.text()); const blob = await r.blob(); const name = r.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'watchlist-backup.json'; const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); } catch (e) { setError(e.message); } };
-  const restoreBackup = async (e) => { const file = e.target.files?.[0]; if (!file) return; setError(null); try { const backup = JSON.parse(await file.text()); const r = await fetch(`${API}/backup/restore`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(backup) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || r.statusText); e.target.value = ''; } catch (err) { setError(err.message); } };
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const [mergeOnly, setMergeOnly] = useState(false);
+  const [restoreFileLabel, setRestoreFileLabel] = useState('No file chosen');
+
+  const downloadBackup = async () => {
+    setError(null); setSuccess(null);
+    try {
+      const r = await fetch(`${API}/backup/export`);
+      if (!r.ok) throw new Error(await r.text());
+      const blob = await r.blob();
+      const name = r.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'watchlist-backup.json';
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href);
+      setSuccess('Backup downloaded.');
+    } catch (e) {
+      setError(e.message === 'Failed to fetch' ? 'Could not reach the server. Make sure the server is running (npm start) and try again.' : e.message);
+    }
+  };
+
+  const restoreBackup = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null); setSuccess(null); setRestoreLoading(true);
+    setRestoreFileLabel(file.name);
+    try {
+      const text = await file.text();
+      let backup;
+      try { backup = JSON.parse(text); } catch (_) { throw new Error('Invalid JSON in backup file.'); }
+      if (!backup?.tables?.titles) throw new Error('Invalid backup format (missing tables.titles).');
+      const endpoint = mergeOnly ? `${API}/backup/merge` : `${API}/backup/restore`;
+      const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(backup) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || r.statusText);
+      e.target.value = '';
+      setRestoreFileLabel('No file chosen');
+      setSuccess(mergeOnly ? 'Merge complete. Only titles not already in your list were added. Refresh or go to Home to see data.' : 'Backup restored successfully. Refresh the page or go to Home to see your data.');
+    } catch (err) {
+      const msg = err.message === 'Failed to fetch' ? 'Could not reach the server. Make sure the server is running (npm start) and try again.' : err.message;
+      setError(msg);
+    } finally {
+      setRestoreLoading(false);
+    }
+  };
+
   return (
-    <div>
+    <div className="page-content">
       <h2 className="page-title">Backup &amp; restore</h2>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)' }}>Download full JSON backup or restore from file.</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-lg)', alignItems: 'center' }}>
-        <button type="button" className="primary" onClick={downloadBackup}>Download backup</button>
-        <label>Restore: <input type="file" accept=".json" onChange={restoreBackup} /></label>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)' }}>Download full JSON backup or restore from file. Use <strong>Merge</strong> to add only titles that are not already in your list.</p>
+
+      <div className="backup-actions">
+        <div className="backup-action-block">
+          <label className="backup-label">Download backup</label>
+          <p className="backup-hint">Save all titles and list data to a JSON file.</p>
+          <button type="button" className="btn primary" onClick={downloadBackup}>Download backup</button>
+        </div>
+
+        <div className="backup-action-block">
+          <label className="backup-label">Restore from file</label>
+          <p className="backup-hint">Choose a backup JSON file. Replace all data or merge (add only missing titles).</p>
+          <label className="backup-checkbox">
+            <input type="checkbox" checked={mergeOnly} onChange={(e) => setMergeOnly(e.target.checked)} />
+            <span>Merge only (add titles that are not already in the list; do not replace existing)</span>
+          </label>
+          <div className="backup-file-row">
+            <label className="btn secondary backup-choose-btn">
+              Choose file
+              <input type="file" accept=".json" onChange={restoreBackup} disabled={restoreLoading} className="backup-file-input" />
+            </label>
+            <span className="backup-file-name">{restoreFileLabel}</span>
+          </div>
+          {restoreLoading && <span className="backup-loading">Restoring…</span>}
+        </div>
       </div>
-      {error && <p className="error" style={{ marginTop: 'var(--space-lg)' }}>{error}</p>}
+
+      {success && <p className="backup-success" style={{ marginTop: 'var(--space-lg)' }}>{success}</p>}
+      {error && <p className="form-error" style={{ marginTop: 'var(--space-lg)' }}>{error}</p>}
     </div>
   );
 }
@@ -453,6 +532,44 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
   const [form, setForm] = useState(initial || INIT_ADD_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState(null);
+  const [lookupResults, setLookupResults] = useState([]);
+  const [lookupDone, setLookupDone] = useState(false);
+  const canLookup = !!form.title?.trim();
+  const handleLookup = async () => {
+    if (!canLookup) return;
+    setLookupLoading(true); setLookupError(null); setLookupResults([]); setLookupDone(false);
+    try {
+      const { results, error } = await lookupTitle(form.title.trim(), form.media_type);
+      setLookupResults(Array.isArray(results) ? results : []);
+      setLookupDone(true);
+      if (error) setLookupError(error);
+    } catch (e) {
+      const msg = e.message || '';
+      if (msg.includes('TMDB_API_KEY') || msg.includes('themoviedb.org')) {
+        setLookupError('Movie/series lookup uses IMDb and does not need a key. Restart your server (or redeploy) so it loads the latest code, then try again.');
+      } else if (msg.includes('RAWG_API_KEY') || msg.includes('rawg')) {
+        setLookupError('Game search needs a RAWG key. Get a free key at rawg.io/apidocs, add RAWG_API_KEY=your_key to server/.env, then restart the server. You can still add this game by filling the form below.');
+      } else {
+        setLookupError(msg);
+      }
+    } finally { setLookupLoading(false); }
+  };
+  const applyLookup = (r) => {
+    setForm((f) => ({
+      ...f,
+      title: r.title || f.title,
+      release_date: r.release_date ? r.release_date.slice(0, 10) : f.release_date,
+      format: r.format ?? f.format,
+      description: r.description ?? f.description,
+      description_short: r.description_short ?? f.description_short,
+      cover_image: r.cover_image ?? f.cover_image,
+      banner_image: r.banner_image ?? f.banner_image,
+      alternate_title: r.alternate_title ?? f.alternate_title,
+    }));
+    setLookupResults([]);
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title?.trim()) return;
@@ -486,6 +603,35 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
         <label className="form-label">Format (optional)</label>
         <input value={form.format || ''} onChange={(e) => setForm((f) => ({ ...f, format: e.target.value }))} placeholder="e.g. TV, RPG" />
       </div>
+      <div className="form-field lookup-block">
+        <p className="form-section-title">Search and auto-fill from the web</p>
+        <p className="lookup-hint">
+          Enter a title and select type (Movie, Series, Game, or Book) above, then click the button below. Results will appear; click one to fill the form.
+        </p>
+        {form.media_type === 'game' && (
+          <p className="lookup-hint lookup-key-hint">
+            Game search needs a free <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">RAWG</a> key. Get a key, add <code>RAWG_API_KEY=your_key</code> to <code>server/.env</code>, then restart the server. You can still add games by filling the form manually.
+          </p>
+        )}
+        <button type="button" className="btn primary" onClick={handleLookup} disabled={!canLookup || lookupLoading}>{lookupLoading ? 'Searching…' : 'Search and auto-fill'}</button>
+        {lookupError && <p className="form-error">{lookupError}</p>}
+        {lookupDone && !lookupLoading && lookupResults.length === 0 && !lookupError && <p className="lookup-hint" style={{ marginTop: 8 }}>No results found. Try a different title or type.</p>}
+        {lookupResults.length > 0 && (
+          <ul className="lookup-results">
+            {lookupResults.map((r, i) => (
+              <li key={i} className="lookup-result-item" onClick={() => applyLookup(r)}>
+                {r.cover_image && <div className="lookup-result-poster" style={{ backgroundImage: `url(${r.cover_image})` }} />}
+                <div className="lookup-result-info">
+                  <strong>{r.title}</strong>
+                  {r.release_date && <span className="lookup-result-date">{r.release_date.slice(0, 4)}</span>}
+                  {r.alternate_title && <span className="lookup-result-alt">{r.alternate_title}</span>}
+                  {r.description_short && <p>{r.description_short}{r.description_short.length >= 200 ? '…' : ''}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <p className="form-section-title">Publication</p>
       <div className="form-field">
         <label className="form-label">Release status</label>
@@ -499,7 +645,7 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
         <label className="form-label">Release date end (optional)</label>
         <input type="date" value={form.release_date_end || ''} onChange={(e) => setForm((f) => ({ ...f, release_date_end: e.target.value }))} />
       </div>
-      <p className="form-section-title">Media & description</p>
+      <p className="form-section-title">Media</p>
       <div className="form-field">
         <label className="form-label">Cover image URL (optional)</label>
         <input type="url" value={form.cover_image || ''} onChange={(e) => setForm((f) => ({ ...f, cover_image: e.target.value }))} placeholder="https://…" />
@@ -508,6 +654,7 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
         <label className="form-label">Hero banner URL (optional)</label>
         <input type="url" value={form.banner_image || ''} onChange={(e) => setForm((f) => ({ ...f, banner_image: e.target.value }))} placeholder="https://…" />
       </div>
+      <p className="form-section-title">Description</p>
       <div className="form-field form-field-span-2">
         <label className="form-label">Description (optional)</label>
         <textarea value={form.description || ''} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Full description" rows={3} />
@@ -524,13 +671,29 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
 
 function AddTitle() {
   const navigate = useNavigate();
+  const [successData, setSuccessData] = useState(null);
   const handleSubmit = async (payload) => {
     const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || r.statusText);
-    navigate(`/title/${data.slug}`);
+    setSuccessData(data);
     return data;
   };
+  if (successData) {
+    return (
+      <div className="page-content">
+        <div className="success-block" role="alert">
+          <div className="success-icon" aria-hidden="true">✓</div>
+          <h2 className="page-title success-title">Title added</h2>
+          <p className="success-message">“{successData.title}” has been added successfully.</p>
+          <div className="success-actions">
+            <Link to={`/title/${successData.slug}`} className="btn primary">View title</Link>
+            <button type="button" className="btn secondary" onClick={() => setSuccessData(null)}>Add another</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="page-content">
       <h2 className="page-title">Add title</h2>
@@ -579,6 +742,16 @@ function EditTitle() {
   );
 }
 
+function NotFound() {
+  return (
+    <div className="page-content">
+      <h2 className="page-title">Page not found</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)' }}>The page you’re looking for doesn’t exist or was moved.</p>
+      <Link to="/" className="btn primary">Go to Home</Link>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -592,6 +765,7 @@ export default function App() {
           <Route path="lists" element={<MyLists />} />
           <Route path="backup" element={<Backup />} />
           <Route path="add" element={<AddTitle />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>

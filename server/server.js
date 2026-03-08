@@ -2,6 +2,7 @@
  * Watchlist backend — SQLite (local) or PostgreSQL (Render DATABASE_URL) + backup + all API routes.
  * Run: node server.js
  */
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { existsSync } from 'fs';
@@ -49,6 +50,57 @@ async function restoreBackup(backup) {
         await tx.run(`INSERT INTO user_list (${cols.join(',')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(',')}) ON CONFLICT (user_id, title_id) DO UPDATE SET status=EXCLUDED.status, score=EXCLUDED.score, progress=EXCLUDED.progress`, vals);
       } else {
         await tx.run(`INSERT OR REPLACE INTO user_list (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, vals);
+      }
+    }
+  });
+}
+
+async function mergeBackup(backup) {
+  if (!backup?.tables?.titles) throw new Error('Invalid backup');
+  const isPg = db.isPg();
+  const existingRows = await db.query('SELECT id, slug FROM titles');
+  const existingBySlug = new Map(existingRows.map((r) => [r.slug, r.id]));
+  const backupIdToOurId = new Map(); // backup title id -> our title id
+
+  await db.transaction(async (tx) => {
+    for (const row of backup.tables.titles || []) {
+      const slug = row.slug ?? row.title?.toLowerCase().replace(/\s+/g, '-');
+      if (!slug) continue;
+      const ourId = existingBySlug.get(slug);
+      if (ourId != null) {
+        backupIdToOurId.set(row.id, ourId);
+        continue;
+      }
+      const cols = TITLE_COLUMNS.filter((c) => row[c] !== undefined);
+      const vals = cols.map((c) => row[c]);
+      if (cols.length === 0) continue;
+      let newId;
+      if (isPg) {
+        const inserted = await tx.queryOne(`INSERT INTO titles (${cols.join(',')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(',')}) RETURNING id`, vals);
+        newId = inserted?.id ?? (await tx.queryOne('SELECT id FROM titles WHERE slug = $1', [row.slug ?? slug]))?.id;
+      } else {
+        await tx.run(`INSERT INTO titles (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, vals);
+        const inserted = await tx.queryOne('SELECT id FROM titles WHERE slug = ?', [row.slug ?? slug]);
+        newId = inserted?.id;
+      }
+      if (newId) {
+        backupIdToOurId.set(row.id, newId);
+        existingBySlug.set(slug, newId);
+      }
+    }
+    const existingList = await tx.query('SELECT user_id, title_id FROM user_list');
+    const listKey = (uid, tid) => `${uid}:${tid}`;
+    const existingSet = new Set(existingList.map((r) => listKey(r.user_id, r.title_id)));
+    for (const row of backup.tables.user_list || []) {
+      const ourTitleId = backupIdToOurId.get(row.title_id);
+      if (ourTitleId == null) continue;
+      const key = listKey(row.user_id ?? DEMO_USER, ourTitleId);
+      if (existingSet.has(key)) continue;
+      existingSet.add(key);
+      if (isPg) {
+        await tx.run('INSERT INTO user_list (user_id, title_id, status, score, progress) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, title_id) DO NOTHING', [row.user_id ?? DEMO_USER, ourTitleId, row.status ?? 'planning', row.score ?? null, row.progress ?? null]);
+      } else {
+        await tx.run('INSERT OR IGNORE INTO user_list (user_id, title_id, status, score, progress) VALUES (?, ?, ?, ?, ?)', [row.user_id ?? DEMO_USER, ourTitleId, row.status ?? 'planning', row.score ?? null, row.progress ?? null]);
       }
     }
   });
@@ -216,6 +268,133 @@ app.post('/api/backup/restore', async (req, res) => {
     await restoreBackup(req.body);
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/backup/merge', async (req, res) => {
+  try {
+    await mergeBackup(req.body);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ----- Look up title from web: IMDb (movie/series), TMDB fallback, RAWG (game), Open Library (book) -----
+const TMDB_KEY = process.env.TMDB_API_KEY;
+const RAWG_KEY = process.env.RAWG_API_KEY;
+const IMDB_BASE = 'https://api.imdbapi.dev';
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_IMG = 'https://image.tmdb.org/t/p';
+
+function normLookupResult(r) {
+  return { title: r.title ?? '', release_date: r.release_date ?? null, description: r.description ?? null, description_short: r.description_short ?? null, cover_image: r.cover_image ?? null, banner_image: r.banner_image ?? null, alternate_title: r.alternate_title ?? null, format: r.format ?? null };
+}
+
+// IMDb type filter: API returns camelCase (movie, tvSeries, tvMiniSeries). Normalize for comparison.
+const IMDB_MOVIE_TYPES = ['MOVIE'];
+const IMDB_SERIES_TYPES = ['TV_SERIES', 'TV_MINI_SERIES', 'TV_SPECIAL', 'TV_MOVIE', 'TVSERIES', 'TVMINISERIES', 'TVSPECIAL', 'TVMOVIE'];
+
+app.get('/api/lookup', async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    const type = req.query.type; // 'movie' | 'series' | 'game' | 'book'
+    if (!q) return res.json([]);
+    if (!['movie', 'series', 'game', 'book'].includes(type)) return res.json([]);
+
+    // ----- Movie / Series: IMDb (imdbapi.dev) first, then TMDB fallback -----
+    if (type === 'movie' || type === 'series') {
+      const allowedTypes = type === 'movie' ? IMDB_MOVIE_TYPES : IMDB_SERIES_TYPES;
+      let results = [];
+
+      // 1. Try IMDb API (free, no key) — https://imdbapi.dev
+      let imdbError = null;
+      try {
+        const imdbUrl = `${IMDB_BASE}/search/titles?query=${encodeURIComponent(q)}&limit=20`;
+        const imdbRes = await fetch(imdbUrl, {
+          headers: { 'Accept': 'application/json', 'User-Agent': 'WatchlistApp/1.0 (https://github.com/abhishekshakya-np/Watchlist)' },
+        });
+        const imdbData = await imdbRes.json().catch(() => ({}));
+        const titles = Array.isArray(imdbData?.titles) ? imdbData.titles : [];
+        if (!imdbRes.ok) imdbError = imdbData?.message || imdbData?.error || `IMDb returned ${imdbRes.status}`;
+        else if (titles.length > 0) {
+          const typeNorm = (t) => (t.type || '').toUpperCase().replace(/_/g, '');
+          const allowedNorm = new Set(allowedTypes.map((x) => x.toUpperCase().replace(/_/g, '')));
+          const mapOne = (t) => {
+            const title = t.primaryTitle || t.originalTitle || '';
+            const release = t.startYear ? `${String(t.startYear)}-01-01` : null;
+            const plot = t.plot || '';
+            const cover = t.primaryImage?.url || null;
+            return normLookupResult({ title, release_date: release, description: plot || null, description_short: (plot || '').slice(0, 200) || null, cover_image: cover, banner_image: cover, alternate_title: t.originalTitle && t.originalTitle !== title ? t.originalTitle : null });
+          };
+          const filtered = titles.filter((t) => t.type && (allowedNorm.has(typeNorm(t)) || (type === 'series' && /SERIES|SPECIAL|TVMOVIE/i.test((t.type || '').replace(/_/g, '')))));
+          results = (filtered.length > 0 ? filtered : titles).slice(0, 10).map(mapOne);
+        }
+      } catch (e) { imdbError = e.message || 'IMDb request failed'; }
+
+      if (results.length === 0 && imdbError) console.warn('[lookup] IMDb:', imdbError);
+
+      // If we have results, return them. If none and we have an error, return it so the client can show it.
+      const returnError = results.length === 0 ? imdbError : null;
+
+      // 2. Fallback to TMDB only if IMDb returned nothing and TMDB key is set (optional)
+      if (results.length === 0 && TMDB_KEY) {
+        try {
+          const endpoint = type === 'movie' ? `${TMDB_BASE}/search/movie` : `${TMDB_BASE}/search/tv`;
+          const r = await fetch(`${endpoint}?api_key=${encodeURIComponent(TMDB_KEY)}&query=${encodeURIComponent(q)}&language=en-US`);
+          const data = await r.json().catch(() => ({}));
+          if (r.ok && (data.results || []).length > 0) {
+            results = (data.results || []).slice(0, 10).map((item) => {
+              const title = type === 'movie' ? item.title : item.name;
+              const release = type === 'movie' ? item.release_date : item.first_air_date;
+              const poster = item.poster_path ? `${TMDB_IMG}/w500${item.poster_path}` : null;
+              const backdrop = item.backdrop_path ? `${TMDB_IMG}/w1280${item.backdrop_path}` : null;
+              return normLookupResult({ title, release_date: release || null, description: item.overview || null, description_short: (item.overview || '').slice(0, 200) || null, cover_image: poster, banner_image: backdrop });
+            });
+          }
+        } catch (_) { /* keep existing results (e.g. from IMDb) or [] */ }
+      }
+
+      // No results: return list and optional error message so client can show "No results" or the actual error (only when TMDB fallback didn't fill results)
+      if (results.length === 0 && returnError) return res.json({ results: [], error: returnError });
+      return res.json(results);
+    }
+
+    // ----- Game: RAWG -----
+    if (type === 'game') {
+      if (!RAWG_KEY) return res.status(503).json({ error: 'Look up for games needs RAWG_API_KEY. Get a free key at rawg.io/apidocs' });
+      const r = await fetch(`https://api.rawg.io/api/games?key=${encodeURIComponent(RAWG_KEY)}&search=${encodeURIComponent(q)}&page_size=10`);
+      if (!r.ok) return res.status(502).json({ error: 'Look up service error' });
+      const data = await r.json().catch(() => ({}));
+      const results = (data.results || []).slice(0, 10).map((item) => {
+        const released = item.released ? `${item.released}` : null;
+        const desc = item.description_raw || item.description || '';
+        const short = (desc || '').slice(0, 200) || null;
+        const format = Array.isArray(item.genres) && item.genres.length > 0 ? item.genres.map((g) => g.name).join(', ') : null;
+        return normLookupResult({ title: item.name || '', release_date: released, description: desc || null, description_short: short, cover_image: item.background_image || null, banner_image: item.background_image || null, format });
+      });
+      return res.json(results);
+    }
+
+    // ----- Book: Open Library (no key) -----
+    if (type === 'book') {
+      const r = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=10`);
+      if (!r.ok) return res.status(502).json({ error: 'Look up service error' });
+      const data = await r.json().catch(() => ({}));
+      const results = (data.docs || []).slice(0, 10).map((doc) => {
+        const title = doc.title || '';
+        let year = doc.first_publish_year;
+        if (year == null && doc.publish_date?.[0]) {
+          const pubStr = String(doc.publish_date[0]);
+          year = /^\d{4}/.test(pubStr) ? pubStr.slice(0, 4) : pubStr.match(/\b(19|20)\d{2}\b/)?.[0] ?? null;
+        }
+        const release = year ? `${String(year)}-01-01` : null;
+        const author = Array.isArray(doc.author_name) ? doc.author_name.join(', ') : (doc.author_name || '');
+        const desc = author ? `By ${author}.` : null;
+        const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null;
+        return normLookupResult({ title, release_date: release, description: desc, description_short: desc, cover_image: cover, banner_image: null, alternate_title: author || null });
+      });
+      return res.json(results);
+    }
+
+    res.json([]);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ----- Serve built React app (one URL for API + app) -----

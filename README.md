@@ -43,6 +43,10 @@ cd client && npm run build && cd ../server && node server.js
 
 Open **http://localhost:3001** in your browser. To expose it (e.g. ngrok): `ngrok http 3001` and open the tunnel URL from any device. See [docs/DEPLOY.md](docs/DEPLOY.md).
 
+**Tip:** From the repo root, `npm run build` runs client build then `npm ci` in the server. **Stop the server first** (Ctrl+C), otherwise `npm ci` can fail with `EPERM` on `better_sqlite3.node` (the file is locked by the running process).
+
+**Port 3001 in use:** If you see `EADDRINUSE: address already in use :::3001`, another server is running. Stop it with Ctrl+C in that terminal, or on Windows free the port: `netstat -ano | findstr :3001`, then `taskkill /PID <PID> /F` (use the PID from the last column).
+
 ### Push to GitHub (abhishekshakya-np/Watchlist)
 
 ```bash
@@ -54,7 +58,26 @@ git push -u origin main
 
 If the remote repo already has content, pull first: `git pull origin main --allow-unrelated-histories`, then push.
 
-### 3. Use backup and restore
+### Look up from web (optional)
+
+On **Add title** or **Edit title**, click **Look up online** to fetch details from the internet by type:
+
+| Type   | Source        | Env variable   | Key required |
+|--------|---------------|----------------|--------------|
+| Movie  | [IMDb API](https://imdbapi.dev/) (then TMDB fallback) | `TMDB_API_KEY` only for fallback | No (IMDb is free); optional TMDB key if IMDb returns nothing |
+| Series | Same as Movie | Same | Same |
+| Game   | RAWG          | `RAWG_API_KEY` | Yes — [rawg.io/apidocs](https://rawg.io/apidocs) |
+| Book   | Open Library  | —              | No |
+
+```bash
+export TMDB_API_KEY=your_tmdb_key   # optional fallback when IMDb has no results
+export RAWG_API_KEY=your_rawg_key   # for games
+# books work with no key
+```
+
+For local development, add these to `server/.env` (copy from `server/.env.example`), then restart the server. Game search will work once `RAWG_API_KEY` is set.
+
+### 4. Use backup and restore
 
 - **Export:** In the UI, click **Download backup**. A file like `watchlist-backup-2025-03-03.json` is downloaded with all `titles` and `user_list` data.
 - **Restore:** Click **Restore** and choose a previously saved backup JSON file. The server replaces current data with the backup (in a transaction).
