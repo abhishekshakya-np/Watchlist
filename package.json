@@ -5,11 +5,13 @@
   "scripts": {
     "build": "cd client && npm ci && npm run build && cd ../server && npm ci",
     "start": "cd server && node server.js",
-    "dev": "concurrently -n client,server -c cyan,magenta \"npm run dev:client\" \"npm run dev:server\"",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev"
+    "serve": "npm run build && npm start",
+    "dev": "cross-env NODE_ENV=development node server/server.js",
+    "check-structure": "node scripts/check-structure.js",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "cross-env": "^7.0.3",
+    "husky": "^9.0.11"
   }
 }

@@ -47,6 +47,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.primary:hover { background: var(--accent-hover); }
 .btn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
 .btn.secondary:hover { background: var(--bg-soft); }
+.btn.btn-danger { background: transparent; color: #ef4444; border: 1px solid #ef4444; }
+.btn.btn-danger:hover { background: rgba(239, 68, 68, 0.15); }
+.btn.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
 
 input, select {
   font-family: inherit;
@@ -124,9 +127,7 @@ input::placeholder { color: var(--text-muted); }
 /* Footer */
 .site-footer { margin-top: auto; padding: var(--space-xl) var(--space-lg); border-top: 1px solid var(--border); background: var(--bg-elevated); }
 .site-footer-inner { max-width: 1400px; margin: 0 auto; text-align: center; }
-.site-footer-credit { margin: 0 0 var(--space); font-size: 14px; color: var(--text-muted); }
-.site-footer-repos { margin: 0; font-size: 13px; color: var(--text-muted); }
-.site-footer-repos a { margin: 0 0.25em; }
+.site-footer-credit { margin: 0; font-size: 14px; color: var(--text-muted); }
 
 /* Media type tabs */
 .media-tabs {
@@ -473,8 +474,9 @@ input::placeholder { color: var(--text-muted); }
 .detail-hero-alt { margin: 0 0 var(--space); font-size: 14px; color: var(--text-muted); }
 .detail-stats-row { display: flex; flex-wrap: wrap; gap: var(--space-lg); font-size: 14px; color: var(--text-muted); padding: var(--space-lg) 0; border-bottom: 1px solid var(--border); }
 .list-score-widget { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-lg); position: sticky; top: 80px; }
-.detail-actions { margin-bottom: var(--space-lg); display: flex; flex-wrap: wrap; gap: var(--space); }
-.detail-actions .btn { display: inline-block; font-size: 13px; padding: 6px 12px; }
+.detail-actions { margin-bottom: var(--space-lg); display: flex; flex-direction: column; gap: var(--space); }
+.detail-actions .btn { display: inline-block; font-size: 13px; padding: 6px 12px; width: 100%; text-align: center; }
+.detail-action-error { font-size: 13px; color: #ef4444; margin: 0; }
 .detail-hint { font-size: 13px; color: var(--text-muted); margin: 0 0 var(--space-lg); }
 .detail-empty { font-size: 14px; color: var(--text-muted); margin: 0; }
 .related-list { display: flex; flex-direction: column; gap: var(--space-xl); }

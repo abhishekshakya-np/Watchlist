@@ -5,6 +5,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import { createServer as createHttpServer } from 'http';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -186,7 +187,7 @@ app.post('/api/titles/:id/related', async (req, res) => {
   try {
     const titleId = Number(req.params.id);
     const { related_title_id, relation_type } = req.body;
-    const type = ['season', 'part', 'remake', 'other'].includes(relation_type) ? relation_type : 'other';
+    const type = ['season', 'part', 'remake', 'remaster', 'other'].includes(relation_type) ? relation_type : 'other';
     const relatedId = Number(related_title_id);
     if (!relatedId || relatedId === titleId) return res.status(400).json({ error: 'Invalid related_title_id' });
     const exists = await db.queryOne('SELECT id FROM titles WHERE id = ?', [titleId]);
@@ -472,23 +473,46 @@ app.get('/api/lookup', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ----- Serve built React app (one URL for API + app) -----
-const clientDist = join(__dirname, '..', 'client', 'dist');
-if (existsSync(clientDist)) {
-  app.use(express.static(clientDist));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(join(clientDist, 'index.html'));
-  });
-}
+// ----- Serve React app: Vite dev (hot reload) or built static -----
+const clientRoot = join(__dirname, '..', 'client');
+const clientDist = join(clientRoot, 'dist');
+const isDev = process.env.NODE_ENV !== 'production';
 
 async function start() {
   await db.init();
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`Watchlist API http://localhost:${PORT}`);
-    if (db.isPg()) console.log('Using PostgreSQL (persistent)');
-    if (existsSync(clientDist)) console.log(`App served at http://localhost:${PORT} (open in browser)`);
-  });
+
+  if (isDev) {
+    const httpServer = createHttpServer(app);
+    const { createServer } = await import('vite');
+    const vite = await createServer({
+      configFile: join(clientRoot, 'vite.config.js'),
+      root: clientRoot,
+      server: {
+        middlewareMode: true,
+        hmr: { server: httpServer },
+      },
+    });
+    app.use(vite.middlewares);
+
+    const PORT = process.env.PORT || 3001;
+    httpServer.listen(PORT, () => {
+      console.log(`http://localhost:${PORT}`);
+      if (db.isPg()) console.log('Using PostgreSQL (persistent)');
+      console.log('Dev mode: hot reload enabled (edit client/src and save)');
+    });
+  } else {
+    if (existsSync(clientDist)) {
+      app.use(express.static(clientDist));
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(join(clientDist, 'index.html'));
+      });
+    }
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`http://localhost:${PORT}`);
+      if (db.isPg()) console.log('Using PostgreSQL (persistent)');
+    });
+  }
 }
 start().catch((err) => { console.error(err); process.exit(1); });

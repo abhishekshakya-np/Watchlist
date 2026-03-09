@@ -13,39 +13,31 @@
 
 ## Quick start
 
-### 1. Install and run the server
+### Development (one URL + hot reload)
+
+From the repo root:
 
 ```bash
-cd server
 npm install
-npm start
-```
-
-Server runs at **http://localhost:3001**. The SQLite file is created at `server/data/watchlist.db`.
-
-### 2. Install and run the React app
-
-```bash
-cd client
-npm install
+cd server && npm install && cd ..
 npm run dev
 ```
 
-App runs at **http://localhost:5173** and proxies `/api` to the server.
+Then open **http://localhost:3001** in your browser.
 
-### 3. Run app + API from one URL (for tunnel or deploy)
+- **One process, one URL:** App and API both at **http://localhost:3001**.
+- **Hot reload:** Edit `client/src/App.jsx` or `client/src/index.css` and save — the browser updates without refresh.
+- **Server auto-restart:** Edit `server/server.js` (or `server/db.js`) and save — the server restarts; refresh the page if needed.
 
-Build the client, then start the server. The server will serve both the API and the built app at **http://localhost:3001**:
+### Production
 
 ```bash
-cd client && npm run build && cd ../server && node server.js
+npm run serve
 ```
 
-Open **http://localhost:3001** in your browser. To expose it (e.g. ngrok): `ngrok http 3001` and open the tunnel URL from any device. See [docs/DEPLOY.md](docs/DEPLOY.md).
+Then open **http://localhost:3001**. Built app + API, no hot reload.
 
-**Tip:** From the repo root, `npm run build` runs client build then `npm ci` in the server. **Stop the server first** (Ctrl+C), otherwise `npm ci` can fail with `EPERM` on `better_sqlite3.node` (the file is locked by the running process).
-
-**Port 3001 in use:** If you see `EADDRINUSE: address already in use :::3001`, another server is running. Stop it with Ctrl+C in that terminal, or on Windows free the port: `netstat -ano | findstr :3001`, then `taskkill /PID <PID> /F` (use the PID from the last column).
+**Port 3001 in use?** Stop any other server (Ctrl+C), then on Windows: `netstat -ano | findstr :3001`, then `taskkill /PID <PID> /F`.
 
 ### Push to GitHub (abhishekshakya-np/Watchlist)
 

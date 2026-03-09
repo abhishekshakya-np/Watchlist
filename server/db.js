@@ -93,12 +93,30 @@ function runSqliteSchema(db) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
       related_title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
-      relation_type TEXT NOT NULL CHECK(relation_type IN ('season','part','remake','other')),
+      relation_type TEXT NOT NULL CHECK(relation_type IN ('season','part','remake','remaster','other')),
       created_at TEXT DEFAULT (datetime('now')),
       UNIQUE(title_id, related_title_id)
     );
     CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
   `);
+  // Migration: add 'remaster' to existing table (SQLite cannot ALTER CHECK)
+  const info = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'title_relations'").get();
+  if (info && typeof info.sql === 'string' && !info.sql.includes("'remaster'")) {
+    db.exec(`
+      CREATE TABLE title_relations_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+        related_title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL CHECK(relation_type IN ('season','part','remake','remaster','other')),
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(title_id, related_title_id)
+      );
+      INSERT INTO title_relations_new SELECT * FROM title_relations;
+      DROP TABLE title_relations;
+      ALTER TABLE title_relations_new RENAME TO title_relations;
+      CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
+    `);
+  }
 }
 
 async function runPgSchema() {
@@ -155,12 +173,18 @@ async function runPgSchema() {
         id SERIAL PRIMARY KEY,
         title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
         related_title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
-        relation_type TEXT NOT NULL CHECK (relation_type IN ('season','part','remake','other')),
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('season','part','remake','remaster','other')),
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(title_id, related_title_id)
       );
       CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
     `);
+    // Allow 'remaster' in existing DBs (PG can alter constraint)
+    await client.query(`
+      ALTER TABLE title_relations DROP CONSTRAINT IF EXISTS title_relations_relation_type_check;
+      ALTER TABLE title_relations ADD CONSTRAINT title_relations_relation_type_check
+        CHECK (relation_type IN ('season','part','remake','remaster','other'));
+    `).catch(() => { /* constraint may already allow remaster */ });
   } finally {
     client.release();
   }

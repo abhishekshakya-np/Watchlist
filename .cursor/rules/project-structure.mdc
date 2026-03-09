@@ -1,0 +1,38 @@
+---
+description: Project structure and where code must live — enforced at commit
+alwaysApply: true
+---
+
+# Watchlist project structure
+
+Follow this layout. Pre-commit blocks the commit if violated.
+
+## Root
+
+- **Allowed:** `package.json`, `package-lock.json`, `README.md`, `render.yaml`, `.gitignore`, `scripts/`, `docs/`, `.cursor/`, `.husky/`
+- **No** app code at root. No stray config files unless listed above.
+- **No** `.env` in git (use `.env.example` only).
+
+## client/ (frontend only)
+
+- **Entry:** `client/index.html`, `client/src/main.jsx`, `client/src/App.jsx`, `client/src/index.css`
+- **Config:** `client/package.json`, `client/vite.config.js`
+- **No** backend/Node API code. No `server/` inside client.
+- **No** build/cache in git: no `client/dist/`, no `client/vite.config.js.timestamp*`, no `.cache/`.
+
+## server/ (backend only)
+
+- **Entry:** `server/server.js`, `server/db.js`
+- **Config:** `server/package.json`; env via `server/.env` (not committed) or `server/.env.example`
+- **Data:** `server/data/` is local DB/cache — must be in `.gitignore`, never commit `*.db`, `*.db-wal`, `*.db-shm`
+- **No** React/Vite or frontend bundles here.
+
+## docs/
+
+- **Only** Markdown: `docs/*.md`. No code, no binaries.
+
+## Rules in code
+
+- New UI/components and pages → `client/src/` (e.g. keep using `App.jsx` or split into `client/src/components/`, `client/src/pages/` as the app grows).
+- New API routes or DB logic → `server/server.js` or `server/db.js` (or new files under `server/` if you add them and allow in `scripts/check-structure.js`).
+- New docs → `docs/*.md`.

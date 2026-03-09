@@ -9,7 +9,7 @@ const MEDIA_TYPES = [{ value: 'all', label: 'All' }, { value: 'series', label: '
 const RELEASE_STATUSES = [{ value: '', label: 'Any status' }, { value: 'releasing', label: 'Releasing' }, { value: 'finished', label: 'Finished' }, { value: 'not_yet_released', label: 'Not yet released' }, { value: 'cancelled', label: 'Cancelled' }];
 const SORT_OPTIONS = [{ value: 'popularity', label: 'Popularity' }, { value: 'release-newest', label: 'Release (newest)' }, { value: 'release-oldest', label: 'Release (oldest)' }, { value: 'score', label: 'Score (high)' }, { value: 'score-low', label: 'Score (low)' }, { value: 'title', label: 'Title A–Z' }];
 const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Book' };
-const RELATION_TYPES = [{ value: 'season', label: 'Season' }, { value: 'part', label: 'Part' }, { value: 'remake', label: 'Remake' }, { value: 'other', label: 'Other' }];
+const RELATION_TYPES = [{ value: 'season', label: 'Season' }, { value: 'part', label: 'Part' }, { value: 'remake', label: 'Remake' }, { value: 'remaster', label: 'Remaster' }, { value: 'other', label: 'Other' }];
 
 async function getTitles(params = {}) { const r = await fetch(`${API}/titles?${new URLSearchParams(params)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getTitleBySlug(slug) { const r = await fetch(`${API}/titles/slug/${encodeURIComponent(slug)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
@@ -26,6 +26,7 @@ async function getRelatedTitles(titleId) { const r = await fetch(`${API}/titles/
 async function addRelatedTitle(titleId, related_title_id, relation_type) { const r = await fetch(`${API}/titles/${titleId}/related`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ related_title_id, relation_type }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
 async function createTitle(payload) { const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
 async function removeRelatedTitle(titleId, relatedId) { const r = await fetch(`${API}/titles/${titleId}/related/${relatedId}`, { method: 'DELETE' }); if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
+async function deleteTitle(id) { const r = await fetch(`${API}/titles/${id}`, { method: 'DELETE' }); if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
 async function lookupTitle(q, type, opts = {}) {
   const params = { q, type };
   if (opts.expandSeasons) params.expand = 'seasons';
@@ -243,7 +244,6 @@ function Layout() {
           <p className="site-footer-credit">
             By <a href="https://github.com/abhishekshakya-np" target="_blank" rel="noopener noreferrer">Abhishek Shakya</a> · <a href="https://github.com/abhishekshakya-np" target="_blank" rel="noopener noreferrer">GitHub</a>
           </p>
-          <p className="site-footer-repos">Repositories: <a href="https://github.com/abhishekshakya-np/Watchlist" target="_blank" rel="noopener noreferrer">Watchlist</a> · <a href="https://github.com/abhishekshakya-np/Notes" target="_blank" rel="noopener noreferrer">Notes</a> · <a href="https://github.com/abhishekshakya-np/Job-Board" target="_blank" rel="noopener noreferrer">Job-Board</a> · <a href="https://github.com/abhishekshakya-np/Travel---life" target="_blank" rel="noopener noreferrer">Travel---life</a> · <a href="https://github.com/abhishekshakya-np/only-using-html-css" target="_blank" rel="noopener noreferrer">only-using-html-css</a> · <a href="https://github.com/abhishekshakya-np/abhishekshakya-np.github.io" target="_blank" rel="noopener noreferrer">abhishekshakya-np.github.io</a></p>
         </div>
       </footer>
     </div>
@@ -392,7 +392,7 @@ function AddRelatedModal({ titleId, currentTitle, onClose, onAdded }) {
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
         <div className="modal-body">
-          <p className="modal-intro">Use the <strong>primary title &quot;{primaryName || '…'}&quot;</strong> to search. Pick a result to create it in your library and link it here as a related title (season, part, remake, or other).</p>
+          <p className="modal-intro">Use the <strong>primary title &quot;{primaryName || '…'}&quot;</strong> to search. Pick a result to create it in your library and link it here as a related title (season, part, remake, remaster, or other).</p>
           <div className="form-group">
             <label>Relation type</label>
             <select value={relationType} onChange={(e) => setRelationType(e.target.value)}>
@@ -436,14 +436,23 @@ function AddRelatedModal({ titleId, currentTitle, onClose, onAdded }) {
 
 function TitleDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [title, setTitle] = useState(null);
   const [entry, setEntry] = useState(null);
   const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddRelated, setShowAddRelated] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const refreshEntry = () => { if (title?.id) getListEntry(title.id).then(setEntry); };
   const refreshRelated = () => { if (title?.id) getRelatedTitles(title.id).then(setRelated); };
+  const handleDelete = () => {
+    if (!title?.id) return;
+    if (!window.confirm(`Delete "${title.title || title.name}"? This cannot be undone.`)) return;
+    setDeleting(true); setDeleteError(null);
+    deleteTitle(title.id).then(() => navigate('/')).catch((e) => { setDeleteError(e.message); setDeleting(false); });
+  };
   useEffect(() => {
     setLoading(true); setError(null);
     getTitleBySlug(slug).then((t) => {
@@ -512,7 +521,7 @@ function TitleDetail() {
           {title.media_type === 'game' && (ts.platforms || ts.developer) && <section className="detail-section"><h3>Game info</h3><p>{Array.isArray(ts.platforms) ? ts.platforms.join(', ') : ts.platforms}{ts.developer && ` · ${ts.developer}`}</p></section>}
           <section className="detail-section">
             <h3>🔗 Related</h3>
-            <p className="detail-hint">Seasons, parts, remakes, or other linked titles.</p>
+            <p className="detail-hint">Seasons, parts, remakes, remasters, or other linked titles.</p>
             {related.length > 0 ? (() => {
               const byType = RELATION_TYPES.map(({ value, label }) => ({ value, label, items: related.filter((r) => r.relation_type === value) })).filter((g) => g.items.length > 0);
               return (
@@ -537,13 +546,15 @@ function TitleDetail() {
                   ))}
                 </div>
               );
-            })() : <p className="detail-empty">No related titles yet. Use &quot;Add related title&quot; in the sidebar to link seasons, parts, remakes, or other titles.</p>}
+            })() : <p className="detail-empty">No related titles yet. Use &quot;Add related title&quot; in the sidebar to link seasons, parts, remakes, remasters, or other titles.</p>}
           </section>
         </div>
         <div className="detail-sidebar">
           <div className="detail-actions">
             <Link to={`/title/${title.slug}/edit`} className="btn secondary">Edit title</Link>
             <button type="button" className="btn secondary" onClick={() => setShowAddRelated(true)}>Add related title</button>
+            <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>{deleting ? 'Deleting…' : 'Delete title'}</button>
+            {deleteError && <p className="form-error detail-action-error">{deleteError}</p>}
           </div>
           <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} />
         </div>
