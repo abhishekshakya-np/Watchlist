@@ -89,6 +89,15 @@ function runSqliteSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_titles_media_type ON titles(media_type);
     CREATE INDEX IF NOT EXISTS idx_titles_slug ON titles(slug);
     CREATE INDEX IF NOT EXISTS idx_user_list_user ON user_list(user_id);
+    CREATE TABLE IF NOT EXISTS title_relations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+      related_title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+      relation_type TEXT NOT NULL CHECK(relation_type IN ('season','part','remake','other')),
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(title_id, related_title_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
   `);
 }
 
@@ -142,6 +151,15 @@ async function runPgSchema() {
       CREATE INDEX IF NOT EXISTS idx_titles_media_type ON titles(media_type);
       CREATE INDEX IF NOT EXISTS idx_titles_slug ON titles(slug);
       CREATE INDEX IF NOT EXISTS idx_user_list_user ON user_list(user_id);
+      CREATE TABLE IF NOT EXISTS title_relations (
+        id SERIAL PRIMARY KEY,
+        title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+        related_title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+        relation_type TEXT NOT NULL CHECK (relation_type IN ('season','part','remake','other')),
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(title_id, related_title_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
     `);
   } finally {
     client.release();

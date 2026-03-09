@@ -2,7 +2,7 @@
  * Watchlist backend — SQLite (local) or PostgreSQL (Render DATABASE_URL) + backup + all API routes.
  * Run: node server.js
  */
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { existsSync } from 'fs';
@@ -11,6 +11,9 @@ import { fileURLToPath } from 'url';
 import db from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// Load .env from project root then server/ so key in either place works
+dotenv.config({ path: join(__dirname, '..', '.env') });
+dotenv.config({ path: join(__dirname, '.env') });
 
 // ----- Helpers -----
 const TITLE_COLUMNS = ['slug', 'title', 'name', 'alternate_title', 'native_title', 'romaji', 'note', 'cover_image', 'banner_image', 'media_type', 'format', 'genres', 'tags', 'release_status', 'release_date', 'release_date_end', 'season', 'chapters', 'average_score', 'mean_score', 'popularity', 'popularity_rank', 'description', 'description_short', 'source_credit', 'source_type', 'trailer_url', 'type_specific'];
@@ -167,6 +170,50 @@ app.get('/api/titles/slug/:slug', async (req, res) => {
     res.json(rowToTitle(row));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// Related titles (seasons, parts, remakes, other)
+app.get('/api/titles/:id/related', async (req, res) => {
+  try {
+    const titleId = req.params.id;
+    const rows = await db.query(
+      'SELECT r.relation_type, r.related_title_id, t.slug, t.title, t.cover_image, t.media_type, t.release_date FROM title_relations r JOIN titles t ON t.id = r.related_title_id WHERE r.title_id = ? ORDER BY r.relation_type, t.release_date ASC, t.id ASC',
+      [titleId]
+    );
+    res.json(rows.map((r) => ({ relation_type: r.relation_type, related_title_id: r.related_title_id, title: { id: r.related_title_id, slug: r.slug, title: r.title, cover_image: r.cover_image, media_type: r.media_type, release_date: r.release_date } })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/titles/:id/related', async (req, res) => {
+  try {
+    const titleId = Number(req.params.id);
+    const { related_title_id, relation_type } = req.body;
+    const type = ['season', 'part', 'remake', 'other'].includes(relation_type) ? relation_type : 'other';
+    const relatedId = Number(related_title_id);
+    if (!relatedId || relatedId === titleId) return res.status(400).json({ error: 'Invalid related_title_id' });
+    const exists = await db.queryOne('SELECT id FROM titles WHERE id = ?', [titleId]);
+    const relatedExists = await db.queryOne('SELECT id FROM titles WHERE id = ?', [relatedId]);
+    if (!exists || !relatedExists) return res.status(404).json({ error: 'Not found' });
+    const dup = await db.queryOne('SELECT id FROM title_relations WHERE title_id = ? AND related_title_id = ?', [titleId, relatedId]);
+    if (dup) return res.status(409).json({ error: 'Already related' });
+    if (db.isPg()) {
+      await db.run('INSERT INTO title_relations (title_id, related_title_id, relation_type) VALUES ($1, $2, $3)', [titleId, relatedId, type]);
+    } else {
+      await db.run('INSERT INTO title_relations (title_id, related_title_id, relation_type) VALUES (?, ?, ?)', [titleId, relatedId, type]);
+    }
+    res.status(201).json({ ok: true, relation_type: type, related_title_id: relatedId });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.delete('/api/titles/:id/related/:relatedId', async (req, res) => {
+  try {
+    const titleId = req.params.id;
+    const relatedId = req.params.relatedId;
+    const r = db.isPg()
+      ? await db.run('DELETE FROM title_relations WHERE title_id = $1 AND related_title_id = $2', [titleId, relatedId])
+      : await db.run('DELETE FROM title_relations WHERE title_id = ? AND related_title_id = ?', [titleId, relatedId]);
+    if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.status(204).send();
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/titles/:id', async (req, res) => {
   try {
     const row = await db.queryOne('SELECT * FROM titles WHERE id = ?', [req.params.id]);
@@ -295,8 +342,36 @@ app.get('/api/lookup', async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     const type = req.query.type; // 'movie' | 'series' | 'game' | 'book'
+    const expandSeasons = req.query.expand === 'seasons';
     if (!q) return res.json([]);
     if (!['movie', 'series', 'game', 'book'].includes(type)) return res.json([]);
+
+    // ----- Series: expand to seasons (S1, S2, …) when requested (requires TMDB) -----
+    if (type === 'series' && expandSeasons) {
+      if (!TMDB_KEY) return res.json({ results: [], error: 'Season list requires TMDB API key. Add TMDB_API_KEY to server/.env (get one at themoviedb.org).' });
+      try {
+        const searchRes = await fetch(`${TMDB_BASE}/search/tv?api_key=${encodeURIComponent(TMDB_KEY)}&query=${encodeURIComponent(q)}&language=en-US`);
+        const searchData = await searchRes.json().catch(() => ({}));
+        const show = (searchData.results || [])[0];
+        if (!show || !show.id) return res.json({ results: [], error: 'No series found for this title.' });
+        const tvRes = await fetch(`${TMDB_BASE}/tv/${show.id}?api_key=${encodeURIComponent(TMDB_KEY)}&language=en-US`);
+        const tv = await tvRes.json().catch(() => ({}));
+        const seasons = Array.isArray(tv.seasons) ? tv.seasons : [];
+        const showName = tv.name || show.name || q;
+        const results = seasons
+          .filter((s) => s.season_number != null && s.season_number >= 1)
+          .map((s) => {
+            const title = `${showName} - Season ${s.season_number}`;
+            const release = s.air_date || null;
+            const poster = s.poster_path ? `${TMDB_IMG}/w500${s.poster_path}` : null;
+            const backdrop = (tv.backdrop_path || show.backdrop_path) ? `${TMDB_IMG}/w1280${tv.backdrop_path || show.backdrop_path}` : null;
+            return normLookupResult({ title, release_date: release, description: s.overview || null, description_short: (s.overview || '').slice(0, 200) || null, cover_image: poster, banner_image: backdrop });
+          });
+        return res.json(results);
+      } catch (e) {
+        return res.status(500).json({ results: [], error: e.message || 'Failed to load seasons' });
+      }
+    }
 
     // ----- Movie / Series: IMDb (imdbapi.dev) first, then TMDB fallback -----
     if (type === 'movie' || type === 'series') {

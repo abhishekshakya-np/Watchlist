@@ -9,6 +9,7 @@ const MEDIA_TYPES = [{ value: 'all', label: 'All' }, { value: 'series', label: '
 const RELEASE_STATUSES = [{ value: '', label: 'Any status' }, { value: 'releasing', label: 'Releasing' }, { value: 'finished', label: 'Finished' }, { value: 'not_yet_released', label: 'Not yet released' }, { value: 'cancelled', label: 'Cancelled' }];
 const SORT_OPTIONS = [{ value: 'popularity', label: 'Popularity' }, { value: 'release-newest', label: 'Release (newest)' }, { value: 'release-oldest', label: 'Release (oldest)' }, { value: 'score', label: 'Score (high)' }, { value: 'score-low', label: 'Score (low)' }, { value: 'title', label: 'Title A–Z' }];
 const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Book' };
+const RELATION_TYPES = [{ value: 'season', label: 'Season' }, { value: 'part', label: 'Part' }, { value: 'remake', label: 'Remake' }, { value: 'other', label: 'Other' }];
 
 async function getTitles(params = {}) { const r = await fetch(`${API}/titles?${new URLSearchParams(params)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getTitleBySlug(slug) { const r = await fetch(`${API}/titles/slug/${encodeURIComponent(slug)}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
@@ -21,8 +22,14 @@ async function addToList(titleId, opts = {}) { const r = await fetch(`${API}/use
 async function updateListEntry(titleId, opts) { const r = await fetch(`${API}/user/list/${titleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts) }); if (!r.ok) throw new Error((await r.json()).error || r.statusText); return r.json(); }
 async function removeFromList(titleId) { const r = await fetch(`${API}/user/list/${titleId}`, { method: 'DELETE' }); if (!r.ok) throw new Error((await r.json()).error || r.statusText); }
 async function getListEntry(titleId) { const r = await fetch(`${API}/user/list/entry/${titleId}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
-async function lookupTitle(q, type) {
-  const r = await fetch(`${API}/lookup?${new URLSearchParams({ q, type })}`);
+async function getRelatedTitles(titleId) { const r = await fetch(`${API}/titles/${titleId}/related`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+async function addRelatedTitle(titleId, related_title_id, relation_type) { const r = await fetch(`${API}/titles/${titleId}/related`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ related_title_id, relation_type }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
+async function createTitle(payload) { const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
+async function removeRelatedTitle(titleId, relatedId) { const r = await fetch(`${API}/titles/${titleId}/related/${relatedId}`, { method: 'DELETE' }); if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
+async function lookupTitle(q, type, opts = {}) {
+  const params = { q, type };
+  if (opts.expandSeasons) params.expand = 'seasons';
+  const r = await fetch(`${API}/lookup?${new URLSearchParams(params)}`);
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || r.statusText || 'Lookup failed');
   const results = Array.isArray(data) ? data : (data.results || data.titles || []);
@@ -186,11 +193,11 @@ function ListScoreWidget({ titleId, entry, onUpdate }) {
       {entry ? (
         <>
           <label className="widget-label">Status</label>
-          <select value={status} onChange={(e) => { const v = e.target.value; setStatus(v); save({ status: v, score: score || undefined, progress: progress || undefined }); }} disabled={loading}>{STATUS_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
+          <select value={status} onChange={(e) => { const v = e.target.value; setStatus(v); save({ status: v, score: score === '' ? undefined : score, progress: progress || undefined }); }} disabled={loading}>{STATUS_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</select>
           <label className="widget-label">Score (1–10)</label>
           <input type="number" min={1} max={10} value={score} onChange={(e) => setScore(e.target.value === '' ? '' : Math.min(10, Math.max(1, Number(e.target.value))))} onBlur={() => save({ status, score: score === '' ? undefined : score, progress: progress || undefined })} disabled={loading} />
           <label className="widget-label">Progress</label>
-          <input type="text" placeholder="e.g. 5/12 eps" value={progress} onChange={(e) => setProgress(e.target.value)} onBlur={() => save({ status, score: score || undefined, progress: progress || undefined })} disabled={loading} />
+          <input type="text" placeholder="e.g. 5/12 eps" value={progress} onChange={(e) => setProgress(e.target.value)} onBlur={() => save({ status, score: score === '' ? undefined : score, progress: progress || undefined })} disabled={loading} />
           <button type="button" className="btn primary btn-save-list" onClick={handleSave} disabled={loading}>{loading ? 'Saving…' : 'Save'}</button>
           {saved && <span className="list-score-saved">Saved</span>}
           <button type="button" className="btn-remove" onClick={handleRemove} disabled={loading}>Remove from list</button>
@@ -323,16 +330,126 @@ function Search() {
   );
 }
 
+function AddRelatedModal({ titleId, currentTitle, onClose, onAdded }) {
+  const [relationType, setRelationType] = useState('season');
+  const [lookupResults, setLookupResults] = useState([]);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupDone, setLookupDone] = useState(false);
+  const [error, setError] = useState(null);
+  const [adding, setAdding] = useState(false);
+
+  const primaryName = (currentTitle?.title || currentTitle?.name || '').trim();
+  const mediaType = currentTitle?.media_type || 'series';
+
+  const runLookup = () => {
+    if (!primaryName) return;
+    setError(null); setLookupLoading(true); setLookupResults([]); setLookupDone(false);
+    const expandSeasons = relationType === 'season' && mediaType === 'series';
+    lookupTitle(primaryName, mediaType, { expandSeasons }).then((data) => {
+      const results = Array.isArray(data?.results) ? data.results : [];
+      setLookupResults(results);
+      setLookupDone(true);
+      if (data?.error) setError(data.error);
+    }).catch((e) => {
+      const msg = e.message || '';
+      if (msg.includes('TMDB_API_KEY') || msg.includes('themoviedb.org')) setError('Lookup uses IMDb. Restart the server and try again.');
+      else if (msg.includes('RAWG_API_KEY') || msg.includes('rawg')) setError('Game lookup needs a RAWG key in server/.env.');
+      else setError(msg);
+      setLookupResults([]); setLookupDone(true);
+    }).finally(() => setLookupLoading(false));
+  };
+
+  const handleSelectLookupResult = async (r) => {
+    setAdding(true); setError(null);
+    try {
+      const payload = {
+        title: (r.title || primaryName).trim(),
+        media_type: mediaType,
+        release_date: r.release_date ? String(r.release_date).slice(0, 10) : undefined,
+        format: r.format || undefined,
+        release_status: 'finished',
+        description: r.description?.trim() || undefined,
+        description_short: r.description_short?.trim() || undefined,
+        cover_image: r.cover_image?.trim() || undefined,
+        banner_image: r.banner_image?.trim() || undefined,
+        alternate_title: r.alternate_title?.trim() || undefined,
+      };
+      const created = await createTitle(payload);
+      await addRelatedTitle(titleId, created.id, relationType);
+      onAdded();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div className="modal related-modal" onClick={(e) => e.stopPropagation()} role="dialog">
+        <div className="modal-header">
+          <h3>Add related title</h3>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+        </div>
+        <div className="modal-body">
+          <p className="modal-intro">Use the <strong>primary title &quot;{primaryName || '…'}&quot;</strong> to search. Pick a result to create it in your library and link it here as a related title (season, part, remake, or other).</p>
+          <div className="form-group">
+            <label>Relation type</label>
+            <select value={relationType} onChange={(e) => setRelationType(e.target.value)}>
+              {RELATION_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+            </select>
+            {relationType === 'season' && mediaType === 'series' && <p className="modal-hint-inline">Shows Season 1, 2, 3… for this series (requires TMDB API key in server/.env).</p>}
+          </div>
+          <div className="form-group">
+            <button type="button" className="btn primary full-width" onClick={runLookup} disabled={!primaryName || lookupLoading}>
+              {lookupLoading ? 'Searching…' : 'Search for related titles'}
+            </button>
+          </div>
+          {error && <p className="error">{error}</p>}
+          {lookupDone && !lookupLoading && lookupResults.length === 0 && !error && <p className="loading-inline">No results found for &quot;{primaryName}&quot;. You can add a title manually from the Add title page and then link it here.</p>}
+          {lookupResults.length > 0 && (
+            <div className="related-results-block">
+              <p className="related-results-label">Select one to add as related (it will be created and linked):</p>
+              <ul className="lookup-results">
+                {lookupResults.map((r, i) => (
+                  <li key={i} className="lookup-result-item" onClick={() => handleSelectLookupResult(r)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && handleSelectLookupResult(r)}>
+                    {r.cover_image && <div className="lookup-result-poster" style={{ backgroundImage: `url(${r.cover_image})` }} />}
+                    <div className="lookup-result-info">
+                      <strong>{r.title}</strong>
+                      {r.release_date && <span className="lookup-result-date">{String(r.release_date).slice(0, 4)}</span>}
+                      {r.alternate_title && <span className="lookup-result-alt">{r.alternate_title}</span>}
+                      {r.description_short && <p>{r.description_short.length >= 200 ? r.description_short.slice(0, 200) + '…' : r.description_short}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="modal-hint">
+            <Link to={`/add?related_to=${titleId}&relation_type=${relationType}`} onClick={onClose}>Add a title manually and link it</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TitleDetail() {
   const { slug } = useParams();
   const [title, setTitle] = useState(null);
   const [entry, setEntry] = useState(null);
+  const [related, setRelated] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAddRelated, setShowAddRelated] = useState(false);
   const refreshEntry = () => { if (title?.id) getListEntry(title.id).then(setEntry); };
+  const refreshRelated = () => { if (title?.id) getRelatedTitles(title.id).then(setRelated); };
   useEffect(() => {
     setLoading(true); setError(null);
-    getTitleBySlug(slug).then((t) => { setTitle(t); return getListEntry(t.id); }).then(setEntry).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    getTitleBySlug(slug).then((t) => {
+      setTitle(t);
+      return Promise.all([getListEntry(t.id), getRelatedTitles(t.id)]);
+    }).then(([entryData, relatedData]) => { setEntry(entryData); setRelated(relatedData); }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   }, [slug]);
   if (loading) return <p className="loading">Loading…</p>;
   if (error || !title) return (
@@ -393,14 +510,45 @@ function TitleDetail() {
           {title.media_type === 'movie' && (ts.runtime || ts.director) && <section className="detail-section"><h3>Movie info</h3><p>{ts.runtime && `${ts.runtime} min`} {ts.director && ` · ${ts.director}`}</p></section>}
           {title.media_type === 'book' && (ts.author || ts.pages) && <section className="detail-section"><h3>Book info</h3><p>{ts.author && `Author: ${ts.author}`} {ts.pages && ` · ${ts.pages} pp`}</p></section>}
           {title.media_type === 'game' && (ts.platforms || ts.developer) && <section className="detail-section"><h3>Game info</h3><p>{Array.isArray(ts.platforms) ? ts.platforms.join(', ') : ts.platforms}{ts.developer && ` · ${ts.developer}`}</p></section>}
+          <section className="detail-section">
+            <h3>🔗 Related</h3>
+            <p className="detail-hint">Seasons, parts, remakes, or other linked titles.</p>
+            {related.length > 0 ? (() => {
+              const byType = RELATION_TYPES.map(({ value, label }) => ({ value, label, items: related.filter((r) => r.relation_type === value) })).filter((g) => g.items.length > 0);
+              return (
+                <div className="related-list">
+                  {byType.map(({ value, label, items }) => (
+                    <div key={value} className="related-group">
+                      <h4 className="related-group-title">{label}s</h4>
+                      <ul className="related-items">
+                        {items.map((r) => (
+                          <li key={r.related_title_id} className="related-item">
+                            <Link to={`/title/${r.title.slug}`} className="related-link">
+                              {r.title.cover_image && <span className="related-poster" style={{ backgroundImage: `url(${r.title.cover_image})` }} />}
+                              <span className="related-info">
+                                <strong>{r.title.title}</strong>
+                                {r.title.release_date && <span className="related-meta">{r.title.release_date.slice(0, 4)} · {MEDIA_LABELS[r.title.media_type] || r.title.media_type}</span>}
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              );
+            })() : <p className="detail-empty">No related titles yet. Use &quot;Add related title&quot; in the sidebar to link seasons, parts, remakes, or other titles.</p>}
+          </section>
         </div>
         <div className="detail-sidebar">
           <div className="detail-actions">
             <Link to={`/title/${title.slug}/edit`} className="btn secondary">Edit title</Link>
+            <button type="button" className="btn secondary" onClick={() => setShowAddRelated(true)}>Add related title</button>
           </div>
           <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} />
         </div>
       </div>
+      {showAddRelated && <AddRelatedModal titleId={title.id} currentTitle={title} onClose={() => setShowAddRelated(false)} onAdded={() => { refreshRelated(); setShowAddRelated(false); }} />}
     </div>
   );
 }
