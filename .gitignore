@@ -4,6 +4,8 @@ client/dist/
 *.log
 .env
 .env.local
+**/.env
+server/.env
 
 # Vite / tooling cache (do not commit)
 client/vite.config.js.timestamp*
