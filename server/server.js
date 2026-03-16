@@ -237,11 +237,56 @@ app.post('/api/titles', async (req, res) => {
     });
     row.slug = (row.slug && String(row.slug).trim()) || slug;
     row.title = row.title || 'Untitled';
+
+    // Slug already in use (friendly 409 instead of UNIQUE constraint error)
+    const existingBySlug = await db.queryOne('SELECT * FROM titles WHERE slug = ?', [row.slug]);
+    if (existingBySlug) {
+      return res.status(409).json({
+        error: 'This URL is already in use by another title. Use a different title or open the existing one.',
+        code: 'DUPLICATE_SLUG',
+        existing: rowToTitle(existingBySlug),
+      });
+    }
+
+    // Duplicate check: same name (title or name), same type, same release year
+    const normTitle = (row.title || row.name || '').toString().trim().toLowerCase();
+    const releaseYear = row.release_date ? String(row.release_date).trim().slice(0, 4) : null;
+    if (normTitle) {
+      const candidates = await db.query(
+        'SELECT id, slug, title, name, media_type, release_date FROM titles WHERE (LOWER(TRIM(COALESCE(title,\'\'))) = ? OR LOWER(TRIM(COALESCE(name,\'\'))) = ?) AND media_type = ?',
+        [normTitle, normTitle, row.media_type]
+      );
+      const duplicate = candidates.find((t) => {
+        const existingYear = t.release_date ? String(t.release_date).trim().slice(0, 4) : null;
+        if (releaseYear === null && existingYear === null) return true;
+        if (releaseYear !== null && existingYear !== null && releaseYear === existingYear) return true;
+        return false;
+      });
+      if (duplicate) {
+        const existingTitle = await db.queryOne('SELECT * FROM titles WHERE id = ?', [duplicate.id]);
+        return res.status(409).json({
+          error: 'A title with this name, type, and release already exists.',
+          code: 'DUPLICATE_TITLE',
+          existing: rowToTitle(existingTitle),
+        });
+      }
+    }
+
     const params = TITLE_COLUMNS.map(k => row[k]);
     const id = await db.insertReturningId(`INSERT INTO titles (${TITLE_COLUMNS.join(',')}) VALUES (${TITLE_COLUMNS.map(() => '?').join(',')})`, params);
     const inserted = await db.queryOne('SELECT * FROM titles WHERE id = ?', [id]);
     res.status(201).json(rowToTitle(inserted));
-  } catch (e) { res.status(400).json({ error: e.message }); }
+  } catch (e) {
+    const msg = e.message || '';
+    if ((msg.includes('UNIQUE') && msg.includes('slug')) || msg.includes('duplicate key')) {
+      const attemptedSlug = (req.body.slug || req.body.title || '')
+        .toString().toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || `title-${Date.now()}`;
+      const bySlug = await db.queryOne('SELECT * FROM titles WHERE slug = ?', [attemptedSlug]);
+      if (bySlug) return res.status(409).json({ error: 'This URL is already in use. Use a different title or open the existing one.', code: 'DUPLICATE_SLUG', existing: rowToTitle(bySlug) });
+      return res.status(409).json({ error: 'This URL is already in use. Try a different title or add a custom Slug below.', code: 'DUPLICATE_SLUG' });
+    }
+    res.status(400).json({ error: msg });
+  }
 });
 app.patch('/api/titles/:id', async (req, res) => {
   try {

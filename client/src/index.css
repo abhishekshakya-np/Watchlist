@@ -407,6 +407,8 @@ input::placeholder { color: var(--text-muted); }
   padding: 10px 14px;
 }
 .form-add-title textarea { min-height: 80px; resize: vertical; }
+.duplicate-notice { margin-bottom: var(--space-lg); }
+.duplicate-notice a { font-weight: 500; }
 .form-error {
   grid-column: 1 / -1;
   margin: 0;

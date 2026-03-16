@@ -24,7 +24,16 @@ async function removeFromList(titleId) { const r = await fetch(`${API}/user/list
 async function getListEntry(titleId) { const r = await fetch(`${API}/user/list/entry/${titleId}`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function getRelatedTitles(titleId) { const r = await fetch(`${API}/titles/${titleId}/related`); if (!r.ok) throw new Error(await r.text()); return r.json(); }
 async function addRelatedTitle(titleId, related_title_id, relation_type) { const r = await fetch(`${API}/titles/${titleId}/related`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ related_title_id, relation_type }) }); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
-async function createTitle(payload) { const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); const data = await r.json(); if (!r.ok) throw new Error(data.error || r.statusText); return data; }
+async function createTitle(payload) {
+  const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const data = await r.json();
+  if (!r.ok) {
+    const err = new Error(data.error || r.statusText);
+    if (r.status === 409 && data.existing) err.existing = data.existing;
+    throw err;
+  }
+  return data;
+}
 async function removeRelatedTitle(titleId, relatedId) { const r = await fetch(`${API}/titles/${titleId}/related/${relatedId}`, { method: 'DELETE' }); if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
 async function deleteTitle(id) { const r = await fetch(`${API}/titles/${id}`, { method: 'DELETE' }); if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText); }
 async function lookupTitle(q, type, opts = {}) {
@@ -374,9 +383,18 @@ function AddRelatedModal({ titleId, currentTitle, onClose, onAdded }) {
         banner_image: r.banner_image?.trim() || undefined,
         alternate_title: r.alternate_title?.trim() || undefined,
       };
-      const created = await createTitle(payload);
-      await addRelatedTitle(titleId, created.id, relationType);
-      onAdded();
+      try {
+        const created = await createTitle(payload);
+        await addRelatedTitle(titleId, created.id, relationType);
+        onAdded();
+      } catch (e) {
+        if (e.existing) {
+          await addRelatedTitle(titleId, e.existing.id, relationType);
+          onAdded();
+        } else {
+          setError(e.message);
+        }
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -831,12 +849,28 @@ function TitleForm({ initial, onSubmit, submitLabel = 'Save', loadingLabel = 'Sa
 function AddTitle() {
   const navigate = useNavigate();
   const [successData, setSuccessData] = useState(null);
+  const [duplicateExisting, setDuplicateExisting] = useState(null);
+  const [duplicateCode, setDuplicateCode] = useState(null);
   const handleSubmit = async (payload) => {
-    const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || r.statusText);
-    setSuccessData(data);
-    return data;
+    setDuplicateExisting(null);
+    setDuplicateCode(null);
+    try {
+      const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await r.json();
+      if (!r.ok) {
+        if (r.status === 409) {
+          if (data.existing) setDuplicateExisting(data.existing);
+          setDuplicateCode(data.code || null);
+          throw new Error(data.error || 'Already exists.');
+        }
+        throw new Error(data.error || r.statusText);
+      }
+      setSuccessData(data);
+      return data;
+    } catch (e) {
+      if (e.existing) setDuplicateExisting(e.existing);
+      throw e;
+    }
   };
   if (successData) {
     return (
@@ -856,6 +890,16 @@ function AddTitle() {
   return (
     <div className="page-content">
       <h2 className="page-title">Add title</h2>
+      {(duplicateExisting || duplicateCode) && (
+        <div className="form-error duplicate-notice" role="alert">
+          {duplicateCode === 'DUPLICATE_SLUG'
+            ? 'This URL is already in use. Try a different title or set a custom Slug below.'
+            : 'A title with this name, type, and release already exists.'}
+          {duplicateExisting && (
+            <> <Link to={`/title/${duplicateExisting.slug}`}>View existing title &quot;{duplicateExisting.title || duplicateExisting.name}&quot;</Link></>
+          )}
+        </div>
+      )}
       <TitleForm initial={INIT_ADD_FORM} onSubmit={handleSubmit} submitLabel="Add title" loadingLabel="Adding…" />
     </div>
   );
