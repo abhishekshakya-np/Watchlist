@@ -6,17 +6,19 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "telegram-chat-id": "node telegram-chat-id.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.0",
+    "node-cron": "^3.0.3",
     "pg": "^8.13.0"
   },
   "devDependencies": {
-    "vite": "^5.4.10",
-    "@vitejs/plugin-react": "^4.3.3"
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10"
   }
 }

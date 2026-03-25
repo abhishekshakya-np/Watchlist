@@ -955,9 +955,17 @@ function NotFound() {
   );
 }
 
+function TelegramBackupOnBrowserOpen() {
+  useEffect(() => {
+    fetch(`${API}/backup/trigger-telegram`, { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <TelegramBackupOnBrowserOpen />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />

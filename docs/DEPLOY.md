@@ -41,6 +41,18 @@ On the free tier, Render’s **disk is ephemeral**: when the app sleeps or resta
 
 You do **not** need to change any code or build command. The server automatically uses PostgreSQL when `DATABASE_URL` is set.
 
+### Step 2c: Optional — daily backup to Telegram
+
+The server can upload the same JSON as **Download backup** once per day to a Telegram chat (see `README.md`). On Render:
+
+1. In Telegram, talk to [@BotFather](https://t.me/BotFather) → **/newbot** → copy the **HTTP API token**.
+2. Set **`TELEGRAM_CHAT_ID`** to **your** numeric user id (private chat target). Easiest: message [@userinfobot](https://t.me/userinfobot) and copy the id it shows. **Alternatively**, open **your** new bot (the one for this token), send `/start`, then call `getUpdates` once (or run `npm run telegram-chat-id` from `server/` locally) to read `message.chat.id`. Use a *different* random bot’s chat only if that bot is the one tied to `TELEGRAM_BOT_TOKEN` — messaging some other bot does not populate updates for yours.
+3. Open your **Web Service** → **Environment** → add:
+   - `TELEGRAM_BOT_TOKEN` = token from BotFather  
+   - `TELEGRAM_CHAT_ID` = your chat id (or a group id if the bot is in a group)  
+   Optional: `TELEGRAM_BACKUP_CRON` (default `0 4 * * *` = 04:00 **UTC** on Render), `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `Asia/Kathmandu`). `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` sends a backup when the site is opened (rate-limited by `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC`, default 300).
+4. **Save** — Render redeploys; check **Logs** for `[telegram-backup] Scheduled:` and, after the scheduled time, `[telegram-backup] Sent`.
+
 ### Step 3: Use your public link
 
 - Open **that URL** on any device (phone, tablet, another country) — no login needed.

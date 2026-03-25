@@ -11,6 +11,7 @@ watchlist/
 ├── README.md
 ├── render.yaml
 ├── .gitignore
+├── .env.example          # Committed; copy to .env locally (or use server/.env.example)
 ├── scripts/              # check-structure.js, etc.
 ├── .cursor/rules/        # Cursor AI rules
 ├── .husky/               # Git hooks (pre-commit)
@@ -27,6 +28,8 @@ watchlist/
     ├── package.json
     ├── server.js
     ├── db.js
+    ├── telegram-backup.js  # Optional daily Telegram upload (env-gated)
+    ├── telegram-chat-id.js # Helper: npm run telegram-chat-id → TELEGRAM_CHAT_ID
     ├── .env.example      # Committed; copy to .env locally
     └── data/             # Gitignored (SQLite files)
 ```

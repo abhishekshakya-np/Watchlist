@@ -10,6 +10,7 @@ import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
+import { setupTelegramBackup, runTelegramBackupNow } from './telegram-backup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Load .env from project root then server/ so key in either place works
@@ -369,6 +370,34 @@ app.post('/api/backup/merge', async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+let lastTelegramBrowserBackupAt = 0;
+app.post('/api/backup/trigger-telegram', async (req, res) => {
+  try {
+    if (!/^1|true|yes$/i.test(String(process.env.TELEGRAM_BACKUP_ON_BROWSER_OPEN || '').trim())) {
+      return res.json({ ok: true, skipped: true, reason: 'disabled' });
+    }
+    const secret = process.env.TELEGRAM_BACKUP_BROWSER_SECRET?.trim();
+    if (secret) {
+      const got = req.get('X-Watchlist-Telegram-Secret');
+      if (got !== secret) return res.status(403).json({ ok: false, error: 'forbidden' });
+    }
+    const cooldownSec = Math.max(60, parseInt(process.env.TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC || '300', 10) || 300);
+    const now = Date.now();
+    if (now - lastTelegramBrowserBackupAt < cooldownSec * 1000) {
+      return res.json({ ok: true, skipped: true, reason: 'cooldown' });
+    }
+    lastTelegramBrowserBackupAt = now;
+    const result = await runTelegramBackupNow(exportBackup);
+    if (!result.ok && result.error === 'not_configured') {
+      return res.json({ ok: true, skipped: true, reason: 'not_configured' });
+    }
+    if (!result.ok) return res.status(502).json({ ok: false, error: result.error });
+    res.json({ ok: true, skipped: false, filename: result.filename });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ----- Look up title from web: IMDb (movie/series), TMDB fallback, RAWG (game), Open Library (book) -----
 const TMDB_KEY = process.env.TMDB_API_KEY;
 const RAWG_KEY = process.env.RAWG_API_KEY;
@@ -525,6 +554,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 async function start() {
   await db.init();
+  const { onListen: telegramOnListen } = setupTelegramBackup(exportBackup);
 
   if (isDev) {
     const httpServer = createHttpServer(app);
@@ -544,6 +574,7 @@ async function start() {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
       console.log('Dev mode: hot reload enabled (edit client/src and save)');
+      telegramOnListen?.();
     });
   } else {
     if (existsSync(clientDist)) {
@@ -557,6 +588,7 @@ async function start() {
     app.listen(PORT, () => {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
+      telegramOnListen?.();
     });
   }
 }

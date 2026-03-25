@@ -25,6 +25,8 @@ npm run dev
 
 Then open **http://localhost:3001** in your browser.
 
+**Windows (double-click):** run `scripts/start-watchlist-windows.bat` from Explorer, or create a shortcut to that file. It installs missing dependencies, clears port **3001** if something else is using it, waits until the server responds, then opens your default browser. If the browser never opens, go to **http://localhost:3001** manually once the window shows `http://localhost:3001`.
+
 - **One process, one URL:** App and API both at **http://localhost:3001**.
 - **Hot reload:** Edit `client/src/App.jsx` or `client/src/index.css` and save — the browser updates without refresh.
 - **Server auto-restart:** Edit `server/server.js` (or `server/db.js`) and save — the server restarts; refresh the page if needed.
@@ -68,6 +70,17 @@ export RAWG_API_KEY=your_rawg_key   # for games
 ```
 
 For local development, add these to `server/.env` (copy from `server/.env.example`), then restart the server. Game search will work once `RAWG_API_KEY` is set.
+
+### Daily backup to Telegram (optional)
+
+If `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set (in `.env` at repo root or `server/.env`), the server uploads the same JSON as **Download backup** once per day via Telegram `sendDocument`.
+
+**`TELEGRAM_CHAT_ID` is your numeric Telegram user id** (or a group id), not the bot’s username. Two ways to get it:
+
+1. **Helper bot:** Message [@userinfobot](https://t.me/userinfobot) (or any bot that replies with your id). Copy the number into `TELEGRAM_CHAT_ID=`. If another bot never answers, it cannot give you an id—use a different helper or method (2).
+2. **Your Watchlist bot:** Open the bot **@BotFather** gave you for this project (same token as `TELEGRAM_BOT_TOKEN`). Send `/start` **there** — not only in unrelated chats like @userinfokeepbot unless that account is literally the same bot. Then from `server/` run `npm run telegram-chat-id` and paste the printed line into `.env`.
+
+Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, default `0 4 * * *`). On Render that is **UTC** unless you set `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `America/New_York`). Omit the Telegram variables to disable this entirely. Set `TELEGRAM_BACKUP_ON_START=1` to send one backup each time the server starts listening on its port (localhost is ready; upload runs right after the `http://localhost:…` log). Set `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` to also trigger a backup when someone opens the site (SPA load); `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC` defaults to **300** so refreshes don’t spam Telegram. Deploy steps: [docs/DEPLOY.md](docs/DEPLOY.md) (Step 2c).
 
 ### 4. Use backup and restore
 
