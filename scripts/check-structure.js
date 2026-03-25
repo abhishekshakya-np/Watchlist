@@ -35,7 +35,7 @@ const FORBIDDEN = [
 // Allowed files/dirs at repo root (if we want to forbid unknown root files, enable ROOT_STRICT)
 const ROOT_ALLOWED = new Set([
   'package.json', 'package-lock.json', 'README.md', 'render.yaml', '.gitignore',
-  'docs', 'client', 'server', 'scripts', '.cursor', '.husky', '.env.example',
+  'client', 'server', 'scripts', '.cursor', '.husky', '.env.example',
 ]);
 const ROOT_STRICT = true; // block any other top-level path
 
@@ -61,7 +61,7 @@ function check(paths) {
   }
 
   for (const top of rootFiles) {
-    violations.push({ path: top + '/', msg: `Unexpected top-level path "${top}" (not in allowed list; see docs/PROJECT_STRUCTURE.md)` });
+    violations.push({ path: top + '/', msg: `Unexpected top-level path "${top}" (not in allowed list; see .cursor/rules/project-structure.mdc)` });
   }
 
   return violations;
@@ -84,7 +84,7 @@ if (violations.length > 0) {
     console.error(`    → ${msg}\n`);
   }
   console.error('Fix the paths above (or add to .gitignore) and try again.');
-  console.error('See docs/PROJECT_STRUCTURE.md for rules.\n');
+  console.error('See .cursor/rules/project-structure.mdc for rules.\n');
   process.exit(1);
 }
 

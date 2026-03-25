@@ -4,7 +4,7 @@
 
 **GitHub:** [abhishekshakya-np/Watchlist](https://github.com/abhishekshakya-np/Watchlist) · [Profile](https://github.com/abhishekshakya-np)
 
-**Free public link (one URL, shared data):** Deploy to [Render.com](https://render.com) (free) — see [docs/DEPLOY.md](docs/DEPLOY.md). You get a link like `https://watchlist-xxxx.onrender.com`; open it from any device or place. Anything you or others add is visible to everyone.
+**Free public link (one URL, shared data):** Deploy to [Render.com](https://render.com) (free) — connect this repo, use **`npm run build`** / **`npm start`** (see [`render.yaml`](render.yaml)). Optional: add a PostgreSQL instance and set **`DATABASE_URL`** so data survives restarts. You get a URL like `https://watchlist-xxxx.onrender.com`; open it from any device or place. Anything you or others add is visible to everyone.
 
 ## What’s included
 
@@ -80,7 +80,7 @@ If `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set (in `.env` at repo root o
 1. **Helper bot:** Message [@userinfobot](https://t.me/userinfobot) (or any bot that replies with your id). Copy the number into `TELEGRAM_CHAT_ID=`. If another bot never answers, it cannot give you an id—use a different helper or method (2).
 2. **Your Watchlist bot:** Open the bot **@BotFather** gave you for this project (same token as `TELEGRAM_BOT_TOKEN`). Send `/start` **there** — not only in unrelated chats like @userinfokeepbot unless that account is literally the same bot. Then from `server/` run `npm run telegram-chat-id` and paste the printed line into `.env`.
 
-Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, default `0 4 * * *`). On Render that is **UTC** unless you set `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `America/New_York`). Omit the Telegram variables to disable this entirely. Set `TELEGRAM_BACKUP_ON_START=1` to send one backup each time the server starts listening on its port (localhost is ready; upload runs right after the `http://localhost:…` log). Set `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` to also trigger a backup when someone opens the site (SPA load); `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC` defaults to **300** so refreshes don’t spam Telegram. Deploy steps: [docs/DEPLOY.md](docs/DEPLOY.md) (Step 2c).
+Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, default `0 4 * * *`). On Render that is **UTC** unless you set `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `America/New_York`). Omit the Telegram variables to disable this entirely. Set `TELEGRAM_BACKUP_ON_START=1` to send one backup each time the server starts listening on its port (localhost is ready; upload runs right after the `http://localhost:…` log). Set `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` to also trigger a backup when someone opens the site (SPA load); `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC` defaults to **300** so refreshes don’t spam Telegram. On Render, add the same Telegram env vars under **Environment**.
 
 ### 4. Use backup and restore
 
@@ -115,9 +115,9 @@ The export is a single JSON object:
 - Keep this file anywhere (local disk, cloud storage, version control if non-sensitive).
 - Restore anytime via the UI or `POST /api/backup/restore` with this JSON in the body.
 
-## Docs
+## Docs (local only)
 
-- **[docs/BACKEND_AND_BACKUP.md](docs/BACKEND_AND_BACKUP.md)** – Full explanation of free backend options (Node+SQLite, PocketBase, Supabase) and how backup/restore fit into your watchlist plan.
+The **`docs/`** directory is **gitignored** — keep your own Markdown notes there (e.g. extra deployment notes, `BACKEND_AND_BACKUP.md`). Nothing under `docs/` is committed. Root **`CLAUDE.md`** (e.g. for Claude Code) is also **gitignored**.
 
 ## Production notes
 

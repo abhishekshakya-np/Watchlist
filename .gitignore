@@ -10,3 +10,7 @@ server/.env
 # Vite / tooling cache (do not commit)
 client/vite.config.js.timestamp*
 .cache/
+
+# Local-only notes (not committed)
+docs/
+/CLAUDE.md

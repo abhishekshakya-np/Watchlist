@@ -9,7 +9,7 @@ Follow this layout. Pre-commit blocks the commit if violated.
 
 ## Root
 
-- **Allowed:** `package.json`, `package-lock.json`, `README.md`, `render.yaml`, `.gitignore`, `scripts/`, `docs/`, `.cursor/`, `.husky/`
+- **Allowed:** `package.json`, `package-lock.json`, `README.md`, `render.yaml`, `.gitignore`, `scripts/`, `.cursor/`, `.husky/` (optional local `docs/` and root `CLAUDE.md` are gitignored)
 - **No** app code at root. No stray config files unless listed above.
 - **No** `.env` in git (use `.env.example` only).
 
@@ -27,12 +27,12 @@ Follow this layout. Pre-commit blocks the commit if violated.
 - **Data:** `server/data/` is local DB/cache — must be in `.gitignore`, never commit `*.db`, `*.db-wal`, `*.db-shm`
 - **No** React/Vite or frontend bundles here.
 
-## docs/
+## docs/ (optional, gitignored)
 
-- **Only** Markdown: `docs/*.md`. No code, no binaries.
+- Keep Markdown notes locally if you want; the folder is not tracked. No code or binaries in `docs/` when present.
 
 ## Rules in code
 
 - New UI/components and pages → `client/src/` (e.g. keep using `App.jsx` or split into `client/src/components/`, `client/src/pages/` as the app grows).
 - New API routes or DB logic → `server/server.js` or `server/db.js` (or new files under `server/` if you add them and allow in `scripts/check-structure.js`).
-- New docs → `docs/*.md`.
+- New local notes → optional `docs/*.md` (gitignored).
