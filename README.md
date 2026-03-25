@@ -8,6 +8,7 @@
 
 ## What’s included
 
+- **AI / agent context:** [`AGENTS.md`](AGENTS.md) — project rules, layout, and patterns for coding assistants (read with `.cursor/rules/`).
 - **Backend (1 file):** `server/server.js` — Node + Express + SQLite in a single file: schema, migrations, titles CRUD, feeds, user list, backup export/restore.
 - **Frontend (1 file):** `client/src/App.jsx` — React app in a single file: API helpers, Layout, all components (TitleCard, FilterBar, Sidebar, Detail hero, List widget), and all pages (Home, Browse, Search, Title detail, My lists, Backup, Add title). Styles live in `client/src/index.css`.
 

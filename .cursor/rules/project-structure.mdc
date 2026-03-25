@@ -9,7 +9,7 @@ Follow this layout. Pre-commit blocks the commit if violated.
 
 ## Root
 
-- **Allowed:** `package.json`, `package-lock.json`, `README.md`, `render.yaml`, `.gitignore`, `scripts/`, `.cursor/`, `.husky/` (optional local `docs/` and root `CLAUDE.md` are gitignored)
+- **Allowed:** `package.json`, `package-lock.json`, `README.md`, `AGENTS.md`, `render.yaml`, `.gitignore`, `scripts/`, `.cursor/`, `.husky/` (optional local `docs/` and root `CLAUDE.md` are gitignored)
 - **No** app code at root. No stray config files unless listed above.
 - **No** `.env` in git (use `.env.example` only).
 

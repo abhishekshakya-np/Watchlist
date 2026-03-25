@@ -1,0 +1,83 @@
+---
+description: SCSS authoring rules — BEM naming, nesting, tokens, and mobile-first
+alwaysApply: true
+---
+
+# SCSS with BEM
+
+## Naming
+
+- Use BEM: `.block__element--modifier`. Block = standalone component, element = part of it, modifier = variant or state.
+- No deep nesting beyond 2 levels. Elements do not nest inside elements (`.block__elem1__elem2` is wrong — flatten it).
+- No `#id` selectors. No `!important`. No inline styles.
+
+## Nesting (allowed cases only)
+
+Use SCSS `&` nesting only for:
+- Pseudo-classes: `&:hover`, `&:focus`, `&:focus-visible`
+- Pseudo-elements: `&::before`, `&::after`
+- Modifiers: `&--active`, `&--disabled`
+- Media queries: `@media (min-width: ...)`
+
+Never nest a child block inside a parent block's rule. Each block owns its own top-level rule.
+
+```scss
+// Good
+.card { ... }
+.card__title { ... }
+.card__title--large { ... }
+.card:hover { ... }
+
+// Bad — nested child block
+.card {
+  .button { ... }   // wrong: button is its own block
+}
+```
+
+## Design tokens
+
+- Define all design values as CSS custom properties in `:root`: colors, spacing, radii, font sizes, shadows.
+- Never hardcode hex values, pixel sizes, or font stacks inline — always reference a token.
+
+```scss
+// Good
+color: var(--color-text-primary);
+padding: var(--spacing-4);
+
+// Bad
+color: #1a1a2e;
+padding: 16px;
+```
+
+## File organisation
+
+- One partial per component: `_card.scss`, `_modal.scss`.
+- Use `@use` not `@import`.
+- Tokens/variables go in `_tokens.scss` or `_variables.scss`, imported first.
+
+## Media queries — mobile-first
+
+- Base styles target mobile. Desktop overrides go in `@media (min-width: ...)`.
+- Media queries live inside the block rule they affect, not in a separate file.
+
+```scss
+.card {
+  padding: var(--spacing-3);
+
+  @media (min-width: 768px) {
+    padding: var(--spacing-6);
+  }
+}
+```
+
+## Modifiers
+
+Modifiers only override a property or two — never redefine the full block.
+
+```scss
+// Good
+.btn--large { font-size: var(--text-lg); padding: var(--spacing-4) var(--spacing-6); }
+
+// Bad
+.btn--large { /* copy-paste of entire .btn with one change */ }
+```

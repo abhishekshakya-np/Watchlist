@@ -34,7 +34,7 @@ const FORBIDDEN = [
 
 // Allowed files/dirs at repo root (if we want to forbid unknown root files, enable ROOT_STRICT)
 const ROOT_ALLOWED = new Set([
-  'package.json', 'package-lock.json', 'README.md', 'render.yaml', '.gitignore',
+  'package.json', 'package-lock.json', 'README.md', 'AGENTS.md', 'render.yaml', '.gitignore',
   'client', 'server', 'scripts', '.cursor', '.husky', '.env.example',
 ]);
 const ROOT_STRICT = true; // block any other top-level path

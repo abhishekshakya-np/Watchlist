@@ -1,0 +1,100 @@
+---
+description: React clean code rules — component structure, hooks, state, reusability, and JSX
+alwaysApply: true
+---
+
+# React clean code
+
+## Component structure
+
+- One component per file. Filename matches component name. Use PascalCase.
+- Order inside every component: **hooks → derived state → handlers → return JSX**.
+- Keep components under 150 lines. Extract if longer.
+- No logic in JSX — move conditions and loops to named variables above `return`.
+
+```jsx
+// Good
+const isVisible = status === 'active' && !loading;
+const items = data.map(d => <Item key={d.id} {...d} />);
+return <div>{isVisible && items}</div>;
+
+// Bad
+return (
+  <div>
+    {status === 'active' && !loading && data.map(d => <Item key={d.id} {...d} />)}
+  </div>
+);
+```
+
+## Props
+
+- Destructure props in the function signature.
+- Use default parameter values, not `||` fallbacks in the body.
+- Boolean props: use presence for `true` (`<Modal open>` not `<Modal open={true}>`).
+- Accept `className` on every styled component so callers can extend styles.
+
+```jsx
+// Good
+function Button({ label, variant = 'primary', disabled = false, className }) { ... }
+
+// Bad
+function Button(props) {
+  const variant = props.variant || 'primary';
+}
+```
+
+## Hooks
+
+- Extract repeated stateful logic into a custom hook (`useX`). Justified when used in 2+ places or has 3+ related state variables.
+- Never put business logic directly in `useEffect` — call a named function instead.
+- Dependency arrays must be complete. Do not disable `exhaustive-deps`.
+- `useEffect` is for synchronising with external systems (DOM, timers, subscriptions) — not for deriving state.
+
+## State
+
+- Derive values from existing state rather than syncing with `useEffect`.
+- Co-locate state as close as possible to where it's used.
+- Prefer multiple focused `useState` calls over one large object unless fields always change together.
+
+```jsx
+// Good — derived, no effect needed
+const fullName = `${firstName} ${lastName}`;
+
+// Bad — unnecessary sync
+const [fullName, setFullName] = useState('');
+useEffect(() => setFullName(`${firstName} ${lastName}`), [firstName, lastName]);
+```
+
+## Reusability
+
+- Components should be generic enough to reuse but not so abstract they need a manual.
+- Use composition (`children`, render props) over deep prop drilling.
+- Use compound components or `children` for layout-heavy UI (modals, cards, panels).
+
+## JSX
+
+- Never use array index as `key` when the list can reorder, filter, or change.
+- Extract repeated JSX into a named variable or sub-component — not an inline function inside `return`.
+- Keep ternaries simple: one condition, two short branches. Use early returns or variables for complex conditions.
+
+```jsx
+// Good
+if (loading) return <Spinner />;
+if (error) return <Error message={error} />;
+return <Content data={data} />;
+
+// Bad — nested ternaries in JSX
+return loading ? <Spinner /> : error ? <Error /> : <Content />;
+```
+
+## Performance
+
+- Do not wrap every function in `useCallback` or every value in `useMemo` by default.
+- Only memoize when: passed to a memoized child component, or used as an `useEffect` / `useCallback` dependency.
+- Lazy-load routes and heavy components with `React.lazy` + `Suspense`.
+
+## Naming
+
+- Event handlers: `handleX` for definitions, `onX` for props.
+- Boolean state/props: `isX`, `hasX`, `canX`, `showX`.
+- Custom hooks: always prefix with `use`.
