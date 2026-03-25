@@ -1,6 +1,6 @@
 # Watchlist — instructions for AI coding agents
 
-Use this file with **`.cursor/rules/project-structure.mdc`** (enforced at commit). Prefer **small, focused changes**; match existing patterns in `server/server.js` and `client/src/App.jsx`.
+Use this file with **`.cursor/rules/project-structure.mdc`** (enforced at commit). Prefer **small, focused changes**; match existing patterns in `server/server.js` and the React tree under `client/src/`.
 
 ## Product
 
@@ -11,7 +11,7 @@ Use this file with **`.cursor/rules/project-structure.mdc`** (enforced at commit
 
 | Area | Purpose |
 |------|--------|
-| `client/` | Frontend only: `src/App.jsx`, `src/index.css`, Vite config. **No** Node API here. |
+| `client/` | Frontend only: `src/App.jsx` (router), `src/pages/`, `src/components/`, `src/api.js`, `src/constants.js`, `src/index.css`, Vite config. **No** Node API here. |
 | `server/` | Backend: `server.js`, `db.js`, optional helpers (`telegram-backup.js`, etc.). **No** React bundles. |
 | `scripts/` | `check-structure.js`, Windows helpers. |
 | `docs/` | **Gitignored** — local notes only. |
@@ -49,17 +49,15 @@ Env: load order is **root `.env`** then **`server/.env`** (see `server/server.js
 
 ## Frontend conventions
 
-- **Primary UI** lives in **`client/src/App.jsx`** (large single file): router, API helpers, components, pages.
+- **Router** in **`client/src/App.jsx`** — route-level screens in **`client/src/pages/`**, reusable pieces in **`client/src/components/`**, shared fetches in **`client/src/api.js`**, shared constants in **`client/src/constants.js`**.
 - **Styles:** `client/src/index.css` — reuse CSS variables and existing class names.
-- **API base:** `import.meta.env.VITE_API_URL || '/api'` — same origin in dev/production when served by Node.
+- **API base:** `import.meta.env.VITE_API_URL || '/api'` (exported as `API` from `api.js`) — same origin in dev/production when served by Node.
 
 ### Client pattern (example)
 
 ```javascript
-const API = import.meta.env.VITE_API_URL || '/api';
-const r = await fetch(`${API}/titles`);
-if (!r.ok) throw new Error(await r.text());
-const data = await r.json();
+import { getTitles } from './api.js';
+const data = await getTitles({ sort: 'popularity' });
 ```
 
 ## Coding style (must follow)

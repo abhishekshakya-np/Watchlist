@@ -15,7 +15,7 @@ Follow this layout. Pre-commit blocks the commit if violated.
 
 ## client/ (frontend only)
 
-- **Entry:** `client/index.html`, `client/src/main.jsx`, `client/src/App.jsx`, `client/src/index.css`
+- **Entry:** `client/index.html`, `client/src/main.jsx`, `client/src/App.jsx`, `client/src/index.css` (optional: `client/src/pages/`, `client/src/components/`, `client/src/api.js`, `client/src/constants.js`)
 - **Config:** `client/package.json`, `client/vite.config.js`
 - **No** backend/Node API code. No `server/` inside client.
 - **No** build/cache in git: no `client/dist/`, no `client/vite.config.js.timestamp*`, no `.cache/`.
