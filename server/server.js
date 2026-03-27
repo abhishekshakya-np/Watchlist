@@ -7,6 +7,7 @@ import express from 'express';
 import cors from 'cors';
 import { createServer as createHttpServer } from 'http';
 import { existsSync } from 'fs';
+import { readdir, unlink, stat } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import db from './db.js';
@@ -552,11 +553,93 @@ const clientRoot = join(__dirname, '..', 'client');
 const clientDist = join(clientRoot, 'dist');
 const isDev = process.env.NODE_ENV !== 'production';
 
+/** Vite writes `vite.config.js.timestamp-*.mjs` cache files under client/ — clear leftovers; Vite recreates what it needs. */
+const VITE_TS_CACHE = /^vite\.config\.js\.timestamp.+\.mjs$/;
+
+async function removeAllViteTimestampFiles(root) {
+  let names;
+  try {
+    names = await readdir(root);
+  } catch {
+    return 0;
+  }
+  let removed = 0;
+  for (const name of names) {
+    if (!VITE_TS_CACHE.test(name)) continue;
+    try {
+      await unlink(join(root, name));
+      removed += 1;
+    } catch {
+      // skip
+    }
+  }
+  if (removed > 0) {
+    console.log(`Cleared ${removed} Vite config cache file(s) before dev server (Vite will recreate as needed).`);
+  }
+  return removed;
+}
+
+/** While dev runs, Vite may create multiple timestamp files — keep only the newest by mtime. */
+async function removeViteTimestampFilesExceptNewest(root) {
+  let names;
+  try {
+    names = await readdir(root);
+  } catch {
+    return 0;
+  }
+  const matches = [];
+  for (const name of names) {
+    if (!VITE_TS_CACHE.test(name)) continue;
+    const full = join(root, name);
+    try {
+      const st = await stat(full);
+      matches.push({ full, mtime: st.mtimeMs });
+    } catch {
+      // skip
+    }
+  }
+  if (matches.length <= 1) return 0;
+  matches.sort((a, b) => b.mtime - a.mtime);
+  let removed = 0;
+  for (const { full } of matches.slice(1)) {
+    try {
+      await unlink(full);
+      removed += 1;
+    } catch {
+      // skip
+    }
+  }
+  if (removed > 0) {
+    console.log(`Removed ${removed} extra Vite config cache file(s) (kept newest).`);
+  }
+  return removed;
+}
+
+/** Dev only: optional repeat cleanup. Set VITE_TIMESTAMP_CLEANUP_DISABLED=1 to skip. */
+function scheduleViteTimestampCacheCleanup(root) {
+  if (process.env.VITE_TIMESTAMP_CLEANUP_DISABLED === '1') return;
+  const intervalMs = Number(process.env.VITE_TIMESTAMP_CLEANUP_INTERVAL_MS ?? 120_000);
+  const firstDelayMs = Number(process.env.VITE_TIMESTAMP_CLEANUP_FIRST_DELAY_MS ?? 90_000);
+  const every = Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 120_000;
+  const first = Number.isFinite(firstDelayMs) && firstDelayMs >= 0 ? firstDelayMs : 90_000;
+
+  setTimeout(() => {
+    void removeViteTimestampFilesExceptNewest(root);
+    const id = setInterval(() => {
+      void removeViteTimestampFilesExceptNewest(root);
+    }, every);
+    const stop = () => clearInterval(id);
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+  }, first);
+}
+
 async function start() {
   await db.init();
   const { onListen: telegramOnListen } = setupTelegramBackup(exportBackup);
 
   if (isDev) {
+    await removeAllViteTimestampFiles(clientRoot);
     const httpServer = createHttpServer(app);
     const { createServer } = await import('vite');
     const vite = await createServer({
@@ -574,6 +657,7 @@ async function start() {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
       console.log('Dev mode: hot reload enabled (edit client/src and save)');
+      scheduleViteTimestampCacheCleanup(clientRoot);
       telegramOnListen?.();
     });
   } else {
