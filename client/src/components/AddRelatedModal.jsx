@@ -13,6 +13,7 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupDone, setLookupDone] = useState(false);
   const [error, setError] = useState(null);
+  const [errorRawg, setErrorRawg] = useState(false);
   const [adding, setAdding] = useState(false);
 
   const primaryName = (currentTitle?.title || currentTitle?.name || '').trim();
@@ -21,6 +22,7 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
   const runLookup = () => {
     if (!primaryName) return;
     setError(null);
+    setErrorRawg(false);
     setLookupLoading(true);
     setLookupResults([]);
     setLookupDone(false);
@@ -37,7 +39,8 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
         if (msg.includes('TMDB_API_KEY') || msg.includes('themoviedb.org')) {
           setError('Lookup uses IMDb. Restart the server and try again.');
         } else if (msg.includes('RAWG_API_KEY') || msg.includes('rawg')) {
-          setError('Game lookup needs a RAWG key in server/.env.');
+          setError(null);
+          setErrorRawg(true);
         } else {
           setError(msg);
         }
@@ -50,6 +53,7 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
   const handleSelectLookupResult = async (r) => {
     setAdding(true);
     setError(null);
+    setErrorRawg(false);
     try {
       const payload = {
         title: (r.title || primaryName).trim(),
@@ -111,8 +115,21 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
               {lookupLoading ? 'Searching…' : 'Search for related titles'}
             </button>
           </div>
-          {error && <p className="error">{error}</p>}
-          {lookupDone && !lookupLoading && lookupResults.length === 0 && !error && (
+          {(errorRawg || error) && (
+            <p className="error" role="alert">
+              {errorRawg ? (
+                <>
+                  Game search needs a RAWG API key on the server. Get a free key at{' '}
+                  <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">rawg.io/apidocs</a>, add{' '}
+                  <code>RAWG_API_KEY=your_key</code> to <code>server/.env</code> or the project root <code>.env</code>, then
+                  restart the server. You can still add a related game from the link below.
+                </>
+              ) : (
+                error
+              )}
+            </p>
+          )}
+          {lookupDone && !lookupLoading && lookupResults.length === 0 && !error && !errorRawg && (
             <p className="loading-inline">
               No results found for &quot;{primaryName}&quot;. You can add a title manually from the Add title page and then link it here.
             </p>

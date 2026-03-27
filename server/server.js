@@ -509,7 +509,11 @@ app.get('/api/lookup', async (req, res) => {
 
     // ----- Game: RAWG -----
     if (type === 'game') {
-      if (!RAWG_KEY) return res.status(503).json({ error: 'Look up for games needs RAWG_API_KEY. Get a free key at rawg.io/apidocs' });
+      if (!RAWG_KEY) {
+        return res.status(503).json({
+          error: 'Look up for games needs RAWG_API_KEY. Get a free key at https://rawg.io/apidocs (set in server/.env or project root .env).',
+        });
+      }
       const r = await fetch(`https://api.rawg.io/api/games?key=${encodeURIComponent(RAWG_KEY)}&search=${encodeURIComponent(q)}&page_size=10`);
       if (!r.ok) return res.status(502).json({ error: 'Look up service error' });
       const data = await r.json().catch(() => ({}));

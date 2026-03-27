@@ -11,6 +11,7 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
   const [error, setError] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState(null);
+  const [lookupRawgError, setLookupRawgError] = useState(false);
   const [lookupResults, setLookupResults] = useState([]);
   const [lookupDone, setLookupDone] = useState(false);
   const canLookup = !!form.title?.trim();
@@ -19,6 +20,7 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
     if (!canLookup) return;
     setLookupLoading(true);
     setLookupError(null);
+    setLookupRawgError(false);
     setLookupResults([]);
     setLookupDone(false);
     try {
@@ -31,7 +33,8 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
       if (msg.includes('TMDB_API_KEY') || msg.includes('themoviedb.org')) {
         setLookupError('Movie/series lookup uses IMDb and does not need a key. Restart your server (or redeploy) so it loads the latest code, then try again.');
       } else if (msg.includes('RAWG_API_KEY') || msg.includes('rawg')) {
-        setLookupError('Game search needs a RAWG key. Get a free key at rawg.io/apidocs, add RAWG_API_KEY=your_key to server/.env, then restart the server. You can still add this game by filling the form below.');
+        setLookupError(null);
+        setLookupRawgError(true);
       } else {
         setLookupError(msg);
       }
@@ -139,13 +142,27 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
           <p className="lookup-hint lookup-key-hint">
             Game search needs a free{' '}
             <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">RAWG</a>{' '}
-            key. Get a key, add <code>RAWG_API_KEY=your_key</code> to <code>server/.env</code>, then restart the server. You can still add games by filling the form manually.
+            key. Get a key, add <code>RAWG_API_KEY=your_key</code> to <code>server/.env</code> or the project root{' '}
+            <code>.env</code>, then restart the server. You can still add games by filling the form manually.
           </p>
         )}
         <button type="button" className="btn primary" onClick={handleLookup} disabled={!canLookup || lookupLoading}>
           {lookupLoading ? 'Searching…' : 'Search and auto-fill'}
         </button>
-        {lookupError && <p className="form-error">{lookupError}</p>}
+        {(lookupRawgError || lookupError) && (
+          <p className="form-error" role="alert">
+            {lookupRawgError ? (
+              <>
+                Game search needs a RAWG API key on the server. Get a free key at{' '}
+                <a href="https://rawg.io/apidocs" target="_blank" rel="noopener noreferrer">rawg.io/apidocs</a>, add{' '}
+                <code>RAWG_API_KEY=your_key</code> to <code>server/.env</code> or the project root <code>.env</code>, then
+                restart the server. You can still add this game by filling the form below.
+              </>
+            ) : (
+              lookupError
+            )}
+          </p>
+        )}
         {lookupDone && !lookupLoading && lookupResults.length === 0 && !lookupError && (
           <p className="lookup-hint" style={{ marginTop: 8 }}>No results found. Try a different title or type.</p>
         )}
