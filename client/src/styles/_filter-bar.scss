@@ -1,0 +1,59 @@
+/* FilterBar — block: filter-bar */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  align-items: center;
+  padding: var(--space-lg) 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: clamp(var(--space-lg), 3vw, var(--space-xl));
+}
+
+.filter-bar__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-bar__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.filter-bar__result-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.filter-bar__clear {
+  margin-left: var(--space);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.filter-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-bar__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.filter-bar__chip-btn {
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 14px;
+}

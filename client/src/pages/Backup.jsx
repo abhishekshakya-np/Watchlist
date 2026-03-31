@@ -74,9 +74,9 @@ export default function Backup() {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content page-shell page-shell--backup">
       <h2 className="page-title">Backup &amp; restore</h2>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-lg)' }}>
+      <p className="page-shell__intro">
         Download full JSON backup or restore from file. Use <strong>Merge</strong> to add only titles that are not already in your list.
       </p>
 
@@ -96,19 +96,50 @@ export default function Backup() {
             <input type="checkbox" checked={mergeOnly} onChange={(e) => setMergeOnly(e.target.checked)} />
             <span>Merge only (add titles that are not already in the list; do not replace existing)</span>
           </label>
-          <div className="backup-file-row">
-            <label className="btn secondary backup-choose-btn">
-              Choose file
-              <input type="file" accept=".json" onChange={restoreBackup} disabled={restoreLoading} className="backup-file-input" />
-            </label>
-            <span className="backup-file-name">{restoreFileLabel}</span>
+          <div
+            className={`backup-file-picker${restoreLoading ? ' backup-file-picker--loading' : ''}`}
+            aria-busy={restoreLoading}
+          >
+            <div className="backup-file-picker__row">
+              <div className="backup-file-picker__control">
+                <input
+                  id="backup-restore-file"
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={restoreBackup}
+                  disabled={restoreLoading}
+                  className="backup-file-picker__input"
+                  aria-label="Choose JSON backup file to restore or merge"
+                  aria-describedby="backup-file-hint"
+                />
+                <label
+                  htmlFor="backup-restore-file"
+                  className={`backup-file-picker__trigger btn secondary${restoreLoading ? ' backup-file-picker__trigger--disabled' : ''}`}
+                >
+                  <span className="backup-file-picker__trigger-icon" aria-hidden="true" />
+                  <span className="backup-file-picker__trigger-text">Select JSON file</span>
+                </label>
+              </div>
+              <div className="backup-file-picker__file-info" id="backup-file-hint">
+                <p
+                  className={`backup-file-picker__filename${restoreFileLabel === 'No file chosen' ? ' backup-file-picker__filename--empty' : ''}`}
+                >
+                  {restoreFileLabel === 'No file chosen' ? 'No file selected' : restoreFileLabel}
+                </p>
+                <p className="backup-file-picker__meta">Only .json exports from this app are supported.</p>
+              </div>
+            </div>
+            {restoreLoading && (
+              <p className="backup-file-picker__loading" role="status">
+                Restoring backup…
+              </p>
+            )}
           </div>
-          {restoreLoading && <span className="backup-loading">Restoring…</span>}
         </div>
       </div>
 
-      {success && <p className="backup-success" style={{ marginTop: 'var(--space-lg)' }}>{success}</p>}
-      {error && <p className="form-error" style={{ marginTop: 'var(--space-lg)' }}>{error}</p>}
+      {success && <p className="backup-success page-shell__feedback">{success}</p>}
+      {error && <p className="form-error page-shell__feedback">{error}</p>}
     </div>
   );
 }

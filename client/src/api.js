@@ -38,6 +38,12 @@ export async function getFeedRecent(type, limit = 8) {
   return r.json();
 }
 
+export async function getFeedUpcoming(type, limit = 8) {
+  const r = await fetch(`${API}/titles/feed/upcoming?type=${type}&limit=${limit}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export async function getUserList() {
   const r = await fetch(`${API}/user/list`);
   if (!r.ok) throw new Error(await r.text());

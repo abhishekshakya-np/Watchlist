@@ -1,0 +1,20 @@
+/* Design tokens — colors, spacing, typography, radius (CSS custom properties) */
+:root {
+  --bg: #0d0d0f;
+  --bg-elevated: #16161a;
+  --bg-card: #1a1a1f;
+  --border: #2a2a32;
+  --text: #e4e4e7;
+  --text-muted: #71717a;
+  --accent: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --success: #22c55e;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --space: 8px;
+  --space-sm: 4px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --font: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --bg-soft: #22222a;
+}

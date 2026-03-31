@@ -1,0 +1,249 @@
+/* Add title page — form grid + lookup + success */
+.form-add-title {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-lg) clamp(var(--space-lg), 4vw, var(--space-xl));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(var(--space-xl), 5vw, 40px);
+  margin-top: var(--space-lg);
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (min-width: 900px) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: 10px 14px;
+  }
+
+  textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+}
+
+.form-section-title {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: var(--space-xl) 0 0 0;
+  padding-bottom: var(--space);
+  border-bottom: 1px solid var(--border);
+
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
+.form-description {
+  margin-bottom: var(--space-lg);
+  font-size: 14px;
+  color: var(--text-muted);
+
+  a {
+    color: var(--accent);
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.form-field-span-2 {
+  grid-column: span 2;
+
+  @media (min-width: 640px) {
+    grid-column: span 2;
+  }
+
+  @media (min-width: 900px) {
+    grid-column: span 2;
+  }
+}
+
+.lookup-block {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-lg);
+
+  .btn {
+    margin-top: var(--space);
+  }
+}
+
+.lookup-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.lookup-key-hint {
+  margin-top: 4px;
+
+  a {
+    color: var(--accent);
+    text-underline-offset: 2px;
+  }
+
+  code {
+    font-size: 12px;
+    background: var(--bg-soft);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+}
+
+.lookup-results {
+  list-style: none;
+  margin: var(--space) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+}
+
+.lookup-result-item {
+  display: flex;
+  gap: var(--space);
+  padding: var(--space);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--bg);
+  align-items: flex-start;
+
+  &:hover {
+    background: var(--bg-soft);
+    border-color: var(--accent);
+  }
+}
+
+.lookup-result-poster {
+  width: 60px;
+  height: 90px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  background-size: cover;
+  background-position: center;
+}
+
+.lookup-result-info {
+  flex: 1;
+  min-width: 0;
+
+  strong {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 4px 0 0;
+    line-height: 1.4;
+  }
+}
+
+.lookup-result-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.lookup-result-alt {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.success-block {
+  text-align: center;
+  padding: var(--space-xl) var(--space);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.success-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto var(--space);
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.success-title {
+  margin-bottom: var(--space-sm);
+  color: var(--text);
+}
+
+.success-message {
+  color: var(--text-muted);
+  margin-bottom: var(--space-lg);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space);
+  justify-content: center;
+}
+
+.duplicate-notice {
+  margin-bottom: var(--space-lg);
+
+  a {
+    font-weight: 500;
+  }
+}
+
+.form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #ef4444;
+  font-size: 14px;
+}
+
+.form-submit {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: var(--space);
+  padding: 10px 20px;
+}

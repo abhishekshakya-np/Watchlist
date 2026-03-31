@@ -1,3 +1,22 @@
+/** Shell UI themes (Browse/Home/… light layout) — persisted in localStorage */
+/** Browse page: list density (1 / 2 / 4 cards per row) */
+export const BROWSE_LAYOUT_STORAGE_KEY = 'watchlist-browse-layout';
+
+export const BROWSE_LAYOUT_OPTIONS = [
+  { id: '1', label: 'One card per row', shortLabel: '1' },
+  { id: '2', label: 'Two cards per row', shortLabel: '2' },
+  { id: '4', label: 'Four cards per row', shortLabel: '4' },
+];
+
+export const SHELL_THEME_STORAGE_KEY = 'watchlist-shell-theme';
+
+export const SHELL_THEMES = [
+  { id: 'lavender', label: 'Lavender' },
+  { id: 'ocean', label: 'Ocean' },
+  { id: 'warm', label: 'Warm' },
+  { id: 'midnight', label: 'Midnight' },
+];
+
 /** Shared UI / form constants */
 export const MEDIA_TYPES = [
   { value: 'all', label: 'All' },
@@ -49,6 +68,27 @@ export const STATUS_LABELS = {
   paused: 'Paused',
   dropped: 'Dropped',
 };
+
+/** Sidebar on home — links use Browse `?genre=` (JSON substring match on stored genres) */
+export const HOME_GENRE_LINKS = [
+  'Adventure',
+  'Comedy',
+  'Drama',
+  'Fantasy',
+  'Horror',
+  'Mystery',
+  'Romance',
+  'Sci-Fi',
+  'Slice of Life',
+  'Action',
+  'Thriller',
+  'Game',
+  'Kids',
+  'Mecha',
+  'Music',
+  'Sports',
+  'Supernatural',
+];
 
 export const INIT_ADD_FORM = {
   title: '',

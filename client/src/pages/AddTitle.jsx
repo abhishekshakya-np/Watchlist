@@ -25,7 +25,7 @@ export default function AddTitle() {
 
   if (successData) {
     return (
-      <div className="page-content">
+      <div className="page-content page-shell page-shell--add">
         <div className="success-block" role="alert">
           <div className="success-icon" aria-hidden="true">✓</div>
           <h2 className="page-title success-title">Title added</h2>
@@ -42,7 +42,7 @@ export default function AddTitle() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content page-shell page-shell--add">
       <h2 className="page-title">Add title</h2>
       {(duplicateExisting || duplicateCode) && (
         <div className="form-error duplicate-notice" role="alert">

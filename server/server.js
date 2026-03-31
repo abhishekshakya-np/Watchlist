@@ -165,6 +165,18 @@ app.get('/api/titles/feed/recent', async (req, res) => {
     res.json(rows.map(rowToTitle));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+app.get('/api/titles/feed/upcoming', async (req, res) => {
+  try {
+    const { type, limit = 8 } = req.query;
+    const L = Math.min(Number(limit) || 8, 20);
+    const sql = type && type !== 'all'
+      ? 'SELECT * FROM titles WHERE media_type = ? AND release_status = ? ORDER BY CASE WHEN release_date IS NULL OR release_date = ? THEN 1 ELSE 0 END, release_date ASC, id DESC LIMIT ?'
+      : 'SELECT * FROM titles WHERE release_status = ? ORDER BY CASE WHEN release_date IS NULL OR release_date = ? THEN 1 ELSE 0 END, release_date ASC, id DESC LIMIT ?';
+    const params = type && type !== 'all' ? [type, 'not_yet_released', '', L] : ['not_yet_released', '', L];
+    const rows = await db.query(sql, params);
+    res.json(rows.map(rowToTitle));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 app.get('/api/titles/slug/:slug', async (req, res) => {
   try {
@@ -315,7 +327,7 @@ app.delete('/api/titles/:id', async (req, res) => {
 
 app.get('/api/user/list', async (req, res) => {
   try {
-    const rows = await db.query('SELECT ul.*, t.slug, t.title, t.cover_image, t.media_type FROM user_list ul JOIN titles t ON t.id = ul.title_id WHERE ul.user_id = ? ORDER BY ul.created_at DESC', [DEMO_USER]);
+    const rows = await db.query('SELECT ul.*, t.slug, t.title, t.name, t.cover_image, t.media_type, t.release_date, t.average_score FROM user_list ul JOIN titles t ON t.id = ul.title_id WHERE ul.user_id = ? ORDER BY ul.created_at DESC', [DEMO_USER]);
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
