@@ -1,6 +1,6 @@
 # Watchlist – React + Node + SQLite with backup/restore
 
-**One backend file + one React file** = full watchlist site (Home, Browse, Search, detail pages, My lists, backup/restore).
+**One backend file + one React file** = full watchlist site (Home, Browse with search, detail pages, My lists, backup/restore).
 
 **GitHub:** [abhishekshakya-np/Watchlist](https://github.com/abhishekshakya-np/Watchlist) · [Profile](https://github.com/abhishekshakya-np)
 
@@ -10,7 +10,7 @@
 
 - **AI / agent context:** [`AGENTS.md`](AGENTS.md) — project rules, layout, and patterns for coding assistants (read with `.cursor/rules/`).
 - **Backend (1 file):** `server/server.js` — Node + Express + SQLite in a single file: schema, migrations, titles CRUD, feeds, user list, backup export/restore.
-- **Frontend (1 file):** `client/src/App.jsx` — React app in a single file: API helpers, Layout, all components (TitleCard, FilterBar, Sidebar, Detail hero, List widget), and all pages (Home, Browse, Search, Title detail, My lists, Backup, Add title). Styles live in `client/src/index.css`.
+- **Frontend (1 file):** `client/src/App.jsx` — React app in a single file: API helpers, Layout, all components (TitleCard, FilterBar, Sidebar, Detail hero, List widget), and all pages (Home, Browse, Title detail, My lists, Backup, Add title). Styles are SCSS with BEM partials under `client/src/styles/` (entry: `main.scss`).
 
 ## Quick start
 
@@ -29,7 +29,7 @@ Then open **http://localhost:3001** in your browser.
 **Windows (double-click):** run `scripts/start-watchlist-windows.bat` from Explorer, or create a shortcut to that file. It installs missing dependencies, clears port **3001** if something else is using it, waits until the server responds, then opens your default browser. If the browser never opens, go to **http://localhost:3001** manually once the window shows `http://localhost:3001`.
 
 - **One process, one URL:** App and API both at **http://localhost:3001**.
-- **Hot reload:** Edit `client/src/App.jsx` or `client/src/index.css` and save — the browser updates without refresh.
+- **Hot reload:** Edit `client/src/App.jsx` or `client/src/styles/**/*.scss` and save — the browser updates without refresh.
 - **Server auto-restart:** Edit `server/server.js` (or `server/db.js`) and save — the server restarts; refresh the page if needed.
 
 ### Production

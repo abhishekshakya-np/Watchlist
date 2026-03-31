@@ -11,7 +11,7 @@ Use this file with **`.cursor/rules/project-structure.mdc`** (enforced at commit
 
 | Area | Purpose |
 |------|--------|
-| `client/` | Frontend only: `src/App.jsx` (router), `src/pages/`, `src/components/`, `src/api.js`, `src/constants.js`, `src/index.css`, Vite config. **No** Node API here. |
+| `client/` | Frontend only: `src/App.jsx` (router), `src/pages/`, `src/components/`, `src/api.js`, `src/constants.js`, `src/styles/main.scss` (+ BEM partials), Vite config. **No** Node API here. |
 | `server/` | Backend: `server.js`, `db.js`, optional helpers (`telegram-backup.js`, etc.). **No** React bundles. |
 | `scripts/` | `check-structure.js`, Windows helpers. |
 | `docs/` | **Gitignored** — local notes only. |
@@ -50,7 +50,7 @@ Env: load order is **root `.env`** then **`server/.env`** (see `server/server.js
 ## Frontend conventions
 
 - **Router** in **`client/src/App.jsx`** — route-level screens in **`client/src/pages/`**, reusable pieces in **`client/src/components/`**, shared fetches in **`client/src/api.js`**, shared constants in **`client/src/constants.js`**.
-- **Styles:** `client/src/index.css` — reuse CSS variables and existing class names.
+- **Styles:** `client/src/styles/main.scss` (`@use` partials, BEM blocks) — design tokens in `_tokens.scss`; reuse `var(--…)` and existing class names unless introducing a new block.
 - **API base:** `import.meta.env.VITE_API_URL || '/api'` (exported as `API` from `api.js`) — same origin in dev/production when served by Node.
 
 ### Client pattern (example)
