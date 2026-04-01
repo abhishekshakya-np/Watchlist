@@ -59,7 +59,7 @@ export default function Backup() {
       setRestoreFileLabel('No file chosen');
       setSuccess(
         mergeOnly
-          ? 'Merge complete. Only titles not already in your list were added. Refresh or go to Home to see data.'
+          ? 'Merge complete. New titles and bookmarks (by URL) were added where missing. Refresh or open Home / Bookmarks to see data.'
           : 'Backup restored successfully. Refresh the page or go to Home to see your data.',
       );
     } catch (err) {
@@ -77,13 +77,13 @@ export default function Backup() {
     <div className="page-content page-shell page-shell--backup">
       <h2 className="page-title">Backup &amp; restore</h2>
       <p className="page-shell__intro">
-        Download full JSON backup or restore from file. Use <strong>Merge</strong> to add only titles that are not already in your list.
+        Download full JSON backup or restore from file. Exports include titles, your list, and bookmarks. Use <strong>Merge</strong> to add only titles and bookmark URLs that are not already present (older backup files without bookmarks leave bookmarks unchanged).
       </p>
 
       <div className="backup-actions">
         <div className="backup-action-block">
           <label className="backup-label">Download backup</label>
-          <p className="backup-hint">Save all titles and list data to a JSON file.</p>
+          <p className="backup-hint">Save titles, list entries, and bookmarks to a JSON file.</p>
           <button type="button" className="btn primary" onClick={downloadBackup}>
             Download backup
           </button>
@@ -91,10 +91,10 @@ export default function Backup() {
 
         <div className="backup-action-block">
           <label className="backup-label">Restore from file</label>
-          <p className="backup-hint">Choose a backup JSON file. Replace all data or merge (add only missing titles).</p>
+          <p className="backup-hint">Choose a backup JSON file. Replace all data or merge (add only missing titles and bookmark URLs).</p>
           <label className="backup-checkbox">
             <input type="checkbox" checked={mergeOnly} onChange={(e) => setMergeOnly(e.target.checked)} />
-            <span>Merge only (add titles that are not already in the list; do not replace existing)</span>
+            <span>Merge only (add titles and bookmarks not already present; do not replace existing rows)</span>
           </label>
           <div
             className={`backup-file-picker${restoreLoading ? ' backup-file-picker--loading' : ''}`}

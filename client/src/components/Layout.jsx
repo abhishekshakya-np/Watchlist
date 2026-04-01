@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { SHELL_THEMES, SHELL_THEME_STORAGE_KEY } from '../constants.js';
+import HeaderAddDropdown from './HeaderAddDropdown.jsx';
 
-const LIGHT_SHELL_PATHS = new Set(['/', '/browse', '/lists', '/backup', '/add']);
+const LIGHT_SHELL_PATHS = new Set(['/', '/browse', '/lists', '/backup', '/bookmarks', '/add', '/add-bookmark']);
 
 function isLightShellRoute(pathname) {
   const normalized = pathname.replace(/\/$/, '') || '/';
@@ -61,14 +62,15 @@ export default function Layout() {
             <NavLink to="/lists" className={({ isActive }) => (isActive ? 'active' : '')}>
               My lists
             </NavLink>
+            <NavLink to="/bookmarks" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Bookmarks
+            </NavLink>
             <NavLink to="/backup" className={({ isActive }) => (isActive ? 'active' : '')}>
               Backup
             </NavLink>
           </nav>
           <div className="site-header__actions">
-            <NavLink to="/add" className="site-header__add">
-              Add title
-            </NavLink>
+            <HeaderAddDropdown />
           </div>
         </div>
       </header>
@@ -115,6 +117,7 @@ export default function Layout() {
                 <div className="site-footer-home__col">
                   <span className="site-footer-home__col-title">Discover</span>
                   <NavLink to="/browse">Browse</NavLink>
+                  <NavLink to="/bookmarks">Bookmarks</NavLink>
                 </div>
                 <div className="site-footer-home__col">
                   <span className="site-footer-home__col-title">Connect</span>

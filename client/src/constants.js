@@ -17,6 +17,34 @@ export const SHELL_THEMES = [
   { id: 'midnight', label: 'Midnight' },
 ];
 
+/** Bookmark collection (separate from media watchlist) — preset category ids stored in DB */
+export const BOOKMARK_CATEGORY_PRESETS = [
+  { id: 'general', label: 'General' },
+  { id: 'design_library', label: 'Design library' },
+  { id: 'design_tools', label: 'Design tools' },
+  { id: 'ai_tools', label: 'AI tools' },
+  { id: 'inspiration', label: 'Inspiration' },
+  { id: 'mockups', label: 'Mockups & assets' },
+  { id: 'learning', label: 'Learning & career' },
+  { id: 'community', label: 'Community' },
+  { id: 'news', label: 'News & blogs' },
+];
+
+export function bookmarkCategoryLabel(id) {
+  const key = id == null || String(id).trim() === '' ? 'general' : String(id).trim();
+  const preset = BOOKMARK_CATEGORY_PRESETS.find((p) => p.id === key);
+  if (preset) return preset.label;
+  return key.replace(/_/g, ' ');
+}
+
+/** Bookmarks page filter bar — same UX as Browse “Sort” */
+export const BOOKMARK_SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'title_az', label: 'Title A–Z' },
+  { value: 'title_za', label: 'Title Z–A' },
+];
+
 /** Shared UI / form constants */
 export const MEDIA_TYPES = [
   { value: 'all', label: 'All' },

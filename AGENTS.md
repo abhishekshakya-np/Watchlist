@@ -36,7 +36,7 @@ Env: load order is **root `.env`** then **`server/.env`** (see `server/server.js
 - **Single Express app** in `server/server.js` — new **REST** routes under `/api/...`.
 - **DB access** via `db.js`: `query`, `queryOne`, `run`, `transaction`; supports `?` placeholders (SQLite) with PG translation internally when needed.
 - **Demo user** — `user_list` uses `DEMO_USER = 'me'` (no auth layer in the shipped app).
-- **Backup** — JSON export shape `{ version, exportedAt, tables: { titles, user_list } }`; **`title_relations` is not exported**, so a full **restore** drops relation edges until you re-link or extend the backup format. Restore/merge run in transactions.
+- **Backup** — JSON export shape `{ version, exportedAt, tables: { titles, user_list, bookmarks } }` (version **2** includes `bookmarks`; older files may omit it—restore then leaves bookmarks unchanged). **`title_relations` is not exported**, so a full **restore** drops relation edges until you re-link. Restore/merge run in transactions; merge adds bookmark URLs that are not already stored.
 - **Optional Telegram** — `telegram-backup.js`, env-gated; see `README.md`.
 
 ### API surface (representative)

@@ -1,0 +1,28 @@
+/* Standalone Add bookmark page — matches Add title shell */
+.form-add-bookmark {
+  width: 100%;
+  max-width: 36rem;
+  margin-top: var(--space-lg);
+  padding: clamp(var(--space-lg), 4vw, var(--space-xl));
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.form-add-bookmark__error {
+  margin: 0;
+  font-size: 14px;
+  color: #ef4444;
+}
+
+.form-add-bookmark__submit {
+  margin-top: var(--space);
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .form-add-bookmark__submit {
+    width: auto;
+    align-self: flex-start;
+  }
+}

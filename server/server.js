@@ -31,15 +31,27 @@ function rowToTitle(row) {
 }
 
 async function exportBackup() {
-  const [titles, user_list] = await Promise.all([db.query('SELECT * FROM titles'), db.query('SELECT * FROM user_list')]);
-  return { version: 1, exportedAt: new Date().toISOString(), tables: { titles, user_list } };
+  const [titles, user_list, bookmarks] = await Promise.all([
+    db.query('SELECT * FROM titles'),
+    db.query('SELECT * FROM user_list'),
+    db.query('SELECT * FROM bookmarks'),
+  ]);
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    tables: { titles, user_list, bookmarks },
+  };
 }
 async function restoreBackup(backup) {
   if (!backup?.tables) throw new Error('Invalid backup');
   const isPg = db.isPg();
+  const bookmarkRows = backup.tables.bookmarks;
   await db.transaction(async (tx) => {
     await tx.run('DELETE FROM user_list');
     await tx.run('DELETE FROM titles');
+    if (bookmarkRows !== undefined) {
+      await tx.run('DELETE FROM bookmarks');
+    }
     for (const row of backup.tables.titles || []) {
       const cols = Object.keys(row);
       const vals = cols.map(c => row[c]);
@@ -56,6 +68,26 @@ async function restoreBackup(backup) {
         await tx.run(`INSERT INTO user_list (${cols.join(',')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(',')}) ON CONFLICT (user_id, title_id) DO UPDATE SET status=EXCLUDED.status, score=EXCLUDED.score, progress=EXCLUDED.progress`, vals);
       } else {
         await tx.run(`INSERT OR REPLACE INTO user_list (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, vals);
+      }
+    }
+    if (bookmarkRows !== undefined) {
+      for (const row of bookmarkRows || []) {
+        const cols = Object.keys(row);
+        const vals = cols.map((c) => row[c]);
+        if (cols.length === 0) continue;
+        if (isPg) {
+          const updateCols = cols.filter((c) => c !== 'id');
+          const conflict =
+            updateCols.length > 0
+              ? `ON CONFLICT (id) DO UPDATE SET ${updateCols.map((c) => `${c}=EXCLUDED.${c}`).join(',')}`
+              : 'ON CONFLICT (id) DO NOTHING';
+          await tx.run(
+            `INSERT INTO bookmarks (${cols.join(',')}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(',')}) ${conflict}`,
+            vals,
+          );
+        } else {
+          await tx.run(`INSERT OR REPLACE INTO bookmarks (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`, vals);
+        }
       }
     }
   });
@@ -109,6 +141,27 @@ async function mergeBackup(backup) {
         await tx.run('INSERT OR IGNORE INTO user_list (user_id, title_id, status, score, progress) VALUES (?, ?, ?, ?, ?)', [row.user_id ?? DEMO_USER, ourTitleId, row.status ?? 'planning', row.score ?? null, row.progress ?? null]);
       }
     }
+    const bookmarkMerge = backup.tables.bookmarks;
+    if (Array.isArray(bookmarkMerge)) {
+      for (const row of bookmarkMerge) {
+        const href = row.url != null ? String(row.url).trim() : '';
+        if (!href) continue;
+        const exists = await tx.queryOne('SELECT id FROM bookmarks WHERE url = ?', [href]);
+        if (exists) continue;
+        const label = row.label != null && String(row.label).trim() !== '' ? String(row.label).trim() : null;
+        const notes = row.notes != null && String(row.notes).trim() !== '' ? String(row.notes).trim() : null;
+        const category = row.category != null && String(row.category).trim() !== '' ? sanitizeBookmarkCategory(row.category) : 'general';
+        const imageUrl = normalizeOptionalImageUrlOrNull(row.image_url);
+        if (isPg) {
+          await tx.run(
+            'INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES ($1, $2, $3, $4, $5)',
+            [href, label, notes, category, imageUrl],
+          );
+        } else {
+          await tx.run('INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES (?, ?, ?, ?, ?)', [href, label, notes, category, imageUrl]);
+        }
+      }
+    }
   });
 }
 
@@ -116,6 +169,55 @@ const DEMO_USER = 'me';
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+function normalizeBookmarkUrl(raw) {
+  const t = String(raw ?? '').trim();
+  if (!t) throw new Error('URL is required');
+  const withProto = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  let u;
+  try {
+    u = new URL(withProto);
+  } catch {
+    throw new Error('Invalid URL');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error('Only http and https URLs are allowed');
+  }
+  return u.href;
+}
+
+function sanitizeBookmarkCategory(raw) {
+  let s = String(raw ?? 'general').trim().slice(0, 80);
+  if (!s) s = 'general';
+  return s.replace(/[\x00-\x1f\x7f]/g, '');
+}
+
+const MAX_BOOKMARK_IMAGE_DATA_URL = 2_000_000; // ~2MB string cap for data: URLs in DB
+
+/** Allows https? URLs plus data:image for svg, webp, png, jpg, gif, avif. Throws if invalid. */
+function normalizeOptionalImageUrl(raw) {
+  if (raw == null || String(raw).trim() === '') return null;
+  const s = String(raw).trim();
+  if (s.length > MAX_BOOKMARK_IMAGE_DATA_URL) {
+    throw new Error('Image value is too large');
+  }
+  if (/^data:/i.test(s)) {
+    const ok = /^data:image\/(?:svg\+xml|webp|png|jpe?g|gif|avif)(?:;[\w=.,+\s-]*)?,/i.test(s);
+    if (!ok) {
+      throw new Error('Image data URL must be svg, webp, png, jpg, gif, or avif');
+    }
+    return s;
+  }
+  return normalizeBookmarkUrl(s);
+}
+
+function normalizeOptionalImageUrlOrNull(raw) {
+  try {
+    return normalizeOptionalImageUrl(raw);
+  } catch {
+    return null;
+  }
+}
 
 // ----- API routes -----
 app.get('/api/titles', async (req, res) => {
@@ -359,6 +461,92 @@ app.get('/api/user/list/entry/:titleId', async (req, res) => {
   try {
     const row = await db.queryOne('SELECT * FROM user_list WHERE user_id = ? AND title_id = ?', [DEMO_USER, req.params.titleId]);
     res.json(row || null);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/bookmarks', async (req, res) => {
+  try {
+    let sql = 'SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE 1=1';
+    const params = [];
+    const cat = req.query.category != null ? String(req.query.category).trim() : '';
+    if (cat) {
+      sql += ' AND category = ?';
+      params.push(cat);
+    }
+    const q = req.query.q != null ? String(req.query.q).trim() : '';
+    if (q) {
+      const term = `%${q}%`;
+      sql += ' AND (COALESCE(label,\'\') LIKE ? OR url LIKE ? OR COALESCE(notes,\'\') LIKE ?)';
+      params.push(term, term, term);
+    }
+    sql += ' ORDER BY id DESC';
+    const rows = await db.query(sql, params);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/bookmarks', async (req, res) => {
+  try {
+    const url = normalizeBookmarkUrl(req.body?.url);
+    const label = req.body.label != null && String(req.body.label).trim() !== '' ? String(req.body.label).trim() : null;
+    const notes = req.body.notes != null && String(req.body.notes).trim() !== '' ? String(req.body.notes).trim() : null;
+    const category = sanitizeBookmarkCategory(req.body.category);
+    const imageUrl = normalizeOptionalImageUrl(req.body.image_url);
+    const id = await db.insertReturningId(
+      'INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES (?, ?, ?, ?, ?)',
+      [url, label, notes, category, imageUrl],
+    );
+    if (id == null) {
+      return res.status(500).json({ error: 'Could not create bookmark (no row id from database).' });
+    }
+    const row = await db.queryOne('SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
+    if (!row) {
+      return res.status(500).json({ error: 'Bookmark insert did not return a readable row.' });
+    }
+    const payload = {
+      id: Number(row.id),
+      url: row.url,
+      label: row.label ?? null,
+      notes: row.notes ?? null,
+      category: row.category ?? 'general',
+      image_url: row.image_url ?? null,
+      created_at: row.created_at != null ? String(row.created_at) : null,
+    };
+    return res.status(201).json(payload);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+});
+app.patch('/api/bookmarks/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    const existing = await db.queryOne('SELECT * FROM bookmarks WHERE id = ?', [id]);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    let url = existing.url;
+    if (req.body.url !== undefined) {
+      url = normalizeBookmarkUrl(req.body.url);
+    }
+    const label = req.body.label !== undefined
+      ? (req.body.label == null || String(req.body.label).trim() === '' ? null : String(req.body.label).trim())
+      : existing.label;
+    const notes = req.body.notes !== undefined
+      ? (req.body.notes == null || String(req.body.notes).trim() === '' ? null : String(req.body.notes).trim())
+      : existing.notes;
+    const category = req.body.category !== undefined ? sanitizeBookmarkCategory(req.body.category) : existing.category;
+    let imageUrl = existing.image_url ?? null;
+    if (req.body.image_url !== undefined) {
+      imageUrl = normalizeOptionalImageUrl(req.body.image_url);
+    }
+    await db.run('UPDATE bookmarks SET url = ?, label = ?, notes = ?, category = ?, image_url = ? WHERE id = ?', [url, label, notes, category, imageUrl, id]);
+    const row = await db.queryOne('SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
+    res.json(row);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.delete('/api/bookmarks/:id', async (req, res) => {
+  try {
+    const r = await db.run('DELETE FROM bookmarks WHERE id = ?', [req.params.id]);
+    if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
+    res.status(204).send();
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -631,6 +819,18 @@ async function removeViteTimestampFilesExceptNewest(root) {
   return removed;
 }
 
+function attachPortInUseHelp(server, port) {
+  server.on('error', (err) => {
+    if (err?.code !== 'EADDRINUSE') return;
+    console.error(
+      `\nPort ${port} is already in use (another Watchlist or app is using it).\n` +
+        '  • Stop the other terminal running npm run dev / npm start, or\n' +
+        '  • Windows: from repo root run  .\\scripts\\free-port-3001.ps1\n' +
+        '  • Or use another port:  $env:PORT=3002; npm start\n',
+    );
+  });
+}
+
 /** Dev only: optional repeat cleanup. Set VITE_TIMESTAMP_CLEANUP_DISABLED=1 to skip. */
 function scheduleViteTimestampCacheCleanup(root) {
   if (process.env.VITE_TIMESTAMP_CLEANUP_DISABLED === '1') return;
@@ -668,7 +868,8 @@ async function start() {
     });
     app.use(vite.middlewares);
 
-    const PORT = process.env.PORT || 3001;
+    const PORT = Number(process.env.PORT) || 3001;
+    attachPortInUseHelp(httpServer, PORT);
     httpServer.listen(PORT, () => {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
@@ -684,12 +885,13 @@ async function start() {
         res.sendFile(join(clientDist, 'index.html'));
       });
     }
-    const PORT = process.env.PORT || 3001;
-    app.listen(PORT, () => {
+    const PORT = Number(process.env.PORT) || 3001;
+    const server = app.listen(PORT, () => {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
       telegramOnListen?.();
     });
+    attachPortInUseHelp(server, PORT);
   }
 }
 start().catch((err) => { console.error(err); process.exit(1); });

@@ -108,6 +108,107 @@ export async function deleteTitle(id) {
   if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
 }
 
+export async function getBookmarks(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.category) qs.set('category', params.category);
+  if (params.q) qs.set('q', params.q);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  let r;
+  try {
+    r = await fetch(`${API}/bookmarks${suffix}`);
+  } catch (e) {
+    throw new Error(
+      e.message === 'Failed to fetch'
+        ? 'Could not reach the server. Run npm run dev (or npm start) and open the app from that URL, then try again.'
+        : (e.message || 'Network error'),
+    );
+  }
+  const text = await r.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(
+      !r.ok
+        ? (text.trim().slice(0, 180) || `Request failed (${r.status})`)
+        : 'Invalid JSON from server.',
+    );
+  }
+  if (!r.ok) {
+    const fromJson =
+      data && typeof data === 'object' && data.error != null ? String(data.error).trim() : '';
+    const snippet = text.trim().slice(0, 180);
+    const msg = fromJson || snippet || `Request failed (${r.status})`;
+    throw new Error(msg);
+  }
+  return Array.isArray(data) ? data : [];
+}
+
+function bookmarkFetchTimeoutMs() {
+  return 45_000;
+}
+
+export async function createBookmark(body) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), bookmarkFetchTimeoutMs());
+  let r;
+  try {
+    r = await fetch(`${API}/bookmarks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    if (ctrl.signal.aborted) {
+      throw new Error(
+        'Request timed out. Start the app with npm run dev from the project root and open that URL (not only the Vite port).',
+      );
+    }
+    if (e.message === 'Failed to fetch') {
+      throw new Error('Could not reach the server. Run npm run dev from the repo root and use the URL it prints.');
+    }
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
+
+  const text = await r.text();
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(
+        !r.ok ? text.trim().slice(0, 200) || `Request failed (${r.status})` : 'Invalid JSON from server.',
+      );
+    }
+  }
+  if (!r.ok) {
+    throw new Error((data && data.error) || text.trim().slice(0, 200) || `Request failed (${r.status})`);
+  }
+  if (data == null || typeof data !== 'object' || data.id == null) {
+    throw new Error('Server returned an unexpected response. Check the terminal running the server for errors.');
+  }
+  return data;
+}
+
+export async function updateBookmark(id, body) {
+  const r = await fetch(`${API}/bookmarks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+export async function deleteBookmark(id) {
+  const r = await fetch(`${API}/bookmarks/${id}`, { method: 'DELETE' });
+  if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+}
+
 export async function lookupTitle(q, type, opts = {}) {
   const params = { q, type };
   if (opts.expandSeasons) params.expand = 'seasons';

@@ -85,8 +85,8 @@ Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, defau
 
 ### 4. Use backup and restore
 
-- **Export:** In the UI, click **Download backup**. A file like `watchlist-backup-2025-03-03.json` is downloaded with all `titles` and `user_list` data.
-- **Restore:** Click **Restore** and choose a previously saved backup JSON file. The server replaces current data with the backup (in a transaction).
+- **Export:** In the UI, click **Download backup**. A file like `watchlist-backup-2025-03-03.json` is downloaded with `titles`, `user_list`, and `bookmarks`.
+- **Restore:** Choose a previously saved backup JSON file. Full restore replaces titles and list data; if the file includes `tables.bookmarks`, bookmarks are replaced too (older exports without that key leave bookmarks as they are).
 
 You can also call the API directly:
 
@@ -104,15 +104,17 @@ The export is a single JSON object:
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "exportedAt": "2025-03-03T12:00:00.000Z",
   "tables": {
     "titles": [ { "id": 1, "slug": "...", "title": "...", ... } ],
-    "user_list": [ ... ]
+    "user_list": [ ... ],
+    "bookmarks": [ { "id": 1, "url": "https://...", "label": null, "notes": null, "category": "design_tools", "image_url": null, "created_at": "..." } ]
   }
 }
 ```
 
+- `version` **1** exports omit `bookmarks`; they remain compatible with restore.
 - Keep this file anywhere (local disk, cloud storage, version control if non-sensitive).
 - Restore anytime via the UI or `POST /api/backup/restore` with this JSON in the body.
 

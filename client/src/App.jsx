@@ -8,6 +8,8 @@ import EditTitle from './pages/EditTitle.jsx';
 import MyLists from './pages/MyLists.jsx';
 import Backup from './pages/Backup.jsx';
 import AddTitle from './pages/AddTitle.jsx';
+import AddBookmark from './pages/AddBookmark.jsx';
+import Bookmarks from './pages/Bookmarks.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 function SearchToBrowseRedirect() {
@@ -28,7 +30,9 @@ export default function App() {
           <Route path="title/:slug" element={<TitleDetail />} />
           <Route path="lists" element={<MyLists />} />
           <Route path="backup" element={<Backup />} />
+          <Route path="bookmarks" element={<Bookmarks />} />
           <Route path="add" element={<AddTitle />} />
+          <Route path="add-bookmark" element={<AddBookmark />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

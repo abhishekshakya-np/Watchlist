@@ -98,6 +98,16 @@ function runSqliteSchema(db) {
       UNIQUE(title_id, related_title_id)
     );
     CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url TEXT NOT NULL,
+      label TEXT,
+      notes TEXT,
+      category TEXT DEFAULT 'general',
+      image_url TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_bookmarks_created ON bookmarks(created_at DESC);
   `);
   // Migration: add 'remaster' to existing table (SQLite cannot ALTER CHECK)
   const info = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'title_relations'").get();
@@ -117,6 +127,14 @@ function runSqliteSchema(db) {
       CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
     `);
   }
+  const bmCols = db.prepare('PRAGMA table_info(bookmarks)').all().map((c) => c.name);
+  if (!bmCols.includes('category')) {
+    db.exec("ALTER TABLE bookmarks ADD COLUMN category TEXT DEFAULT 'general'");
+  }
+  if (!bmCols.includes('image_url')) {
+    db.exec('ALTER TABLE bookmarks ADD COLUMN image_url TEXT');
+  }
+  db.exec("UPDATE bookmarks SET category = 'general' WHERE category IS NULL OR TRIM(category) = ''");
 }
 
 async function runPgSchema() {
@@ -178,6 +196,16 @@ async function runPgSchema() {
         UNIQUE(title_id, related_title_id)
       );
       CREATE INDEX IF NOT EXISTS idx_title_relations_title ON title_relations(title_id);
+      CREATE TABLE IF NOT EXISTS bookmarks (
+        id SERIAL PRIMARY KEY,
+        url TEXT NOT NULL,
+        label TEXT,
+        notes TEXT,
+        category TEXT DEFAULT 'general',
+        image_url TEXT,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_bookmarks_created ON bookmarks(created_at DESC);
     `);
     // Allow 'remaster' in existing DBs (PG can alter constraint)
     await client.query(`
@@ -185,6 +213,9 @@ async function runPgSchema() {
       ALTER TABLE title_relations ADD CONSTRAINT title_relations_relation_type_check
         CHECK (relation_type IN ('season','part','remake','remaster','other'));
     `).catch(() => { /* constraint may already allow remaster */ });
+    await client.query(`ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general'`).catch(() => {});
+    await client.query('ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS image_url TEXT').catch(() => {});
+    await client.query("UPDATE bookmarks SET category = 'general' WHERE category IS NULL OR TRIM(category) = ''").catch(() => {});
   } finally {
     client.release();
   }
