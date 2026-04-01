@@ -219,6 +219,231 @@ function normalizeOptionalImageUrlOrNull(raw) {
   }
 }
 
+/** Block SSRF when the server fetches user-supplied URLs for link preview. */
+function isUrlSafeForServerFetch(href) {
+  let u;
+  try {
+    u = new URL(href);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host === 'metadata.google.internal') return false;
+  if (host.endsWith('.localhost') || host.endsWith('.local')) return false;
+
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (ipv4) {
+    const nums = ipv4.slice(1).map(Number);
+    const [a, b] = nums;
+    if (a === 10) return false;
+    if (a === 172 && b >= 16 && b <= 31) return false;
+    if (a === 192 && b === 168) return false;
+    if (a === 127) return false;
+    if (a === 169 && b === 254) return false;
+    if (a === 0) return false;
+    if (a === 100 && b >= 64 && b <= 127) return false;
+  }
+
+  if (host === '[::1]' || host === '::1') return false;
+  const bare = host.startsWith('[') ? host.slice(1, -1).toLowerCase() : host;
+  if (bare.includes(':') && !ipv4) {
+    if (bare === '::1') return false;
+    if (bare.startsWith('fc') || bare.startsWith('fd')) return false;
+    if (bare.startsWith('fe80:')) return false;
+  }
+  return true;
+}
+
+function decodeBasicHtmlEntities(s) {
+  return String(s ?? '')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => {
+      const n = parseInt(h, 16);
+      return Number.isFinite(n) && n >= 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
+    })
+    .replace(/&#(\d+);/g, (_, d) => {
+      const n = Number(d);
+      return Number.isFinite(n) && n >= 0 && n < 0x110000 ? String.fromCodePoint(n) : '';
+    });
+}
+
+/** Parse attributes from the inside of a tag (e.g. meta/link), any order / quoting. */
+function parseHtmlAttrFragment(fragment) {
+  const attrs = Object.create(null);
+  const attrRe =
+    /([^\s=/]+)\s*=\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^\s>]+))/gi;
+  let m;
+  while ((m = attrRe.exec(fragment)) !== null) {
+    const key = String(m[1]).toLowerCase();
+    const raw = m[2] ?? m[3] ?? m[4] ?? '';
+    attrs[key] = decodeBasicHtmlEntities(raw).trim();
+  }
+  return attrs;
+}
+
+function findFirstMetaContentByProperty(html, property) {
+  const want = property.toLowerCase();
+  const re = /<meta\b([^>]*?)>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = parseHtmlAttrFragment(m[1]);
+    if ((attrs.property || '').toLowerCase() === want && attrs.content) {
+      return attrs.content;
+    }
+  }
+  return '';
+}
+
+function findFirstMetaContentByName(html, name) {
+  const want = name.toLowerCase();
+  const re = /<meta\b([^>]*?)>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const attrs = parseHtmlAttrFragment(m[1]);
+    if ((attrs.name || '').toLowerCase() === want && attrs.content) {
+      return attrs.content;
+    }
+  }
+  return '';
+}
+
+function findBestLinkIconHref(html) {
+  const re = /<link\b([^>]*?)>/gi;
+  let m;
+  let bestPri = 999;
+  let bestHref = '';
+  while ((m = re.exec(html)) !== null) {
+    const attrs = parseHtmlAttrFragment(m[1]);
+    const href = attrs.href;
+    if (!href) continue;
+    const rel = (attrs.rel || '').toLowerCase();
+    let pri = 999;
+    if (rel.includes('apple-touch-icon-precomposed')) pri = 0;
+    else if (rel.includes('apple-touch-icon')) pri = 1;
+    else if (rel.includes('shortcut') && rel.includes('icon')) pri = 2;
+    else if (rel.includes('icon')) pri = 3;
+    if (pri < bestPri) {
+      bestPri = pri;
+      bestHref = href;
+    }
+  }
+  return bestHref;
+}
+
+function stripHtmlTags(s) {
+  return String(s).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function trimPreviewField(s, maxLen) {
+  const t = String(s ?? '')
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ')
+    .trim();
+  if (!t) return null;
+  return t.length > maxLen ? t.slice(0, maxLen).trim() : t;
+}
+
+function parseLinkPreviewFromHtml(html, basePageUrl) {
+  let imageRaw =
+    findFirstMetaContentByProperty(html, 'og:image') ||
+    findFirstMetaContentByProperty(html, 'og:image:url') ||
+    findFirstMetaContentByProperty(html, 'og:image:secure_url') ||
+    findFirstMetaContentByName(html, 'twitter:image') ||
+    findFirstMetaContentByName(html, 'twitter:image:src');
+
+  if (!imageRaw) {
+    const iconHref = findBestLinkIconHref(html);
+    if (iconHref) imageRaw = iconHref;
+  }
+
+  let image_url = null;
+  if (imageRaw) {
+    try {
+      const abs = new URL(imageRaw, basePageUrl).href;
+      image_url = normalizeOptionalImageUrl(abs);
+    } catch {
+      image_url = null;
+    }
+  }
+
+  const ogTitle =
+    findFirstMetaContentByProperty(html, 'og:title') || findFirstMetaContentByName(html, 'twitter:title');
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const fromTitleTag = titleMatch ? stripHtmlTags(decodeBasicHtmlEntities(titleMatch[1])) : '';
+  const suggested_title = trimPreviewField(ogTitle || fromTitleTag, 500);
+
+  const ogDesc =
+    findFirstMetaContentByProperty(html, 'og:description') ||
+    findFirstMetaContentByName(html, 'twitter:description') ||
+    findFirstMetaContentByName(html, 'description');
+  const suggested_description = trimPreviewField(ogDesc, 4000);
+
+  return { image_url, suggested_title, suggested_description };
+}
+
+const LINK_PREVIEW_MAX_HEAD_BYTES = 480_000;
+const LINK_PREVIEW_FETCH_MS = 12_000;
+const LINK_PREVIEW_MAX_REDIRECTS = 5;
+
+async function fetchBookmarkPageHtmlSnippet(startUrl) {
+  let url = startUrl;
+  for (let hop = 0; hop <= LINK_PREVIEW_MAX_REDIRECTS; hop += 1) {
+    if (!isUrlSafeForServerFetch(url)) {
+      throw new Error('That URL cannot be loaded for preview');
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LINK_PREVIEW_FETCH_MS);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location');
+      if (!loc || hop === LINK_PREVIEW_MAX_REDIRECTS) {
+        throw new Error('Too many redirects or invalid redirect');
+      }
+      url = new URL(loc, url).href;
+      continue;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Page returned ${res.status}`);
+    }
+
+    const reader = res.body?.getReader();
+    const decoder = new TextDecoder();
+    let chunk = '';
+    if (!reader) {
+      const full = await res.text();
+      return { baseUrl: url, html: full.slice(0, LINK_PREVIEW_MAX_HEAD_BYTES) };
+    }
+    while (chunk.length < LINK_PREVIEW_MAX_HEAD_BYTES) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunk += decoder.decode(value, { stream: true });
+    }
+    return { baseUrl: url, html: chunk };
+  }
+  throw new Error('Too many redirects');
+}
+
 // ----- API routes -----
 app.get('/api/titles', async (req, res) => {
   try {
@@ -462,6 +687,40 @@ app.get('/api/user/list/entry/:titleId', async (req, res) => {
     const row = await db.queryOne('SELECT * FROM user_list WHERE user_id = ? AND title_id = ?', [DEMO_USER, req.params.titleId]);
     res.json(row || null);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+async function bookmarkLinkPreviewFromRawUrl(raw) {
+  const trimmed = raw != null ? String(raw).trim() : '';
+  if (!trimmed) throw new Error('Missing url');
+  const pageUrl = normalizeBookmarkUrl(trimmed);
+  if (!isUrlSafeForServerFetch(pageUrl)) {
+    throw new Error('That URL cannot be loaded for preview');
+  }
+  const { baseUrl, html } = await fetchBookmarkPageHtmlSnippet(pageUrl);
+  return parseLinkPreviewFromHtml(html, baseUrl);
+}
+
+function sendLinkPreviewError(res, e) {
+  const msg = e?.name === 'AbortError' ? 'Request timed out' : (e.message || 'Preview failed');
+  res.status(400).json({ error: msg });
+}
+
+app.get('/api/bookmarks/link-preview', async (req, res) => {
+  try {
+    const preview = await bookmarkLinkPreviewFromRawUrl(req.query.url);
+    res.json(preview);
+  } catch (e) {
+    sendLinkPreviewError(res, e);
+  }
+});
+
+app.post('/api/bookmarks/link-preview', async (req, res) => {
+  try {
+    const preview = await bookmarkLinkPreviewFromRawUrl(req.body?.url);
+    res.json(preview);
+  } catch (e) {
+    sendLinkPreviewError(res, e);
+  }
 });
 
 app.get('/api/bookmarks/categories', async (req, res) => {

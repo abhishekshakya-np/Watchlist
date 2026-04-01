@@ -188,6 +188,32 @@ export async function getBookmarkCategories() {
   return [...merged].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
+/** Fetches Open Graph / Twitter meta (and favicon fallback) for a page URL — server-side only. */
+export async function fetchBookmarkLinkPreview(pageUrl) {
+  let r;
+  try {
+    r = await fetch(`${API}/bookmarks/link-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: pageUrl }),
+    });
+  } catch (e) {
+    if (e.message === 'Failed to fetch') {
+      throw new Error('Could not reach the server to load a preview.');
+    }
+    throw e;
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    throw new Error((data && data.error) || r.statusText || 'Preview failed');
+  }
+  return {
+    image_url: data.image_url ?? null,
+    suggested_title: data.suggested_title ?? null,
+    suggested_description: data.suggested_description ?? null,
+  };
+}
+
 function bookmarkFetchTimeoutMs() {
   return 45_000;
 }

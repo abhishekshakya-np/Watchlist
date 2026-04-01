@@ -541,3 +541,21 @@
   min-height: 44px;
   border-radius: var(--radius-sm);
 }
+
+.bookmarks-form__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  margin-top: var(--space);
+}
+
+.bookmarks-form__preview-btn {
+  align-self: flex-start;
+}
+
+.bookmarks-form__preview-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}

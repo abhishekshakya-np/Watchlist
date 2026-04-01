@@ -19,6 +19,9 @@ export default function BookmarkFormFields({
   setImageUrl,
   disabled = false,
   savedCategoryIds = [],
+  onFetchFromPage,
+  fetchFromPagePending = false,
+  fetchFromPageHint = null,
 }) {
   const extraCategoryIds = useMemo(() => {
     const seen = new Set(PRESET_IDS);
@@ -54,6 +57,23 @@ export default function BookmarkFormFields({
           required
           disabled={disabled}
         />
+        {onFetchFromPage ? (
+          <div className="bookmarks-form__preview">
+            <button
+              type="button"
+              className="btn secondary bookmarks-form__preview-btn"
+              onClick={onFetchFromPage}
+              disabled={disabled || fetchFromPagePending || !String(url).trim()}
+            >
+              {fetchFromPagePending ? 'Loading preview…' : 'Load title, image, and description from page'}
+            </button>
+            {fetchFromPageHint ? (
+              <p className="bookmarks-form__preview-hint" role="status">
+                {fetchFromPageHint}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="bookmarks-form__row">
         <label htmlFor={`${idPrefix}bookmark-label`} className="bookmarks-form__label bookmark-directory__label">

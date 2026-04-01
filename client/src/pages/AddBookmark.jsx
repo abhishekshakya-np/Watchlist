@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { createBookmark, getBookmarkCategories } from '../api.js';
+import { createBookmark, getBookmarkCategories, fetchBookmarkLinkPreview } from '../api.js';
 import BookmarkFormFields from '../components/BookmarkFormFields.jsx';
 
 function effectiveCategoryId(category, categoryCustom) {
@@ -22,6 +22,8 @@ export default function AddBookmark() {
   const [saving, setSaving] = useState(false);
   const [successRow, setSuccessRow] = useState(null);
   const [savedCategoryIds, setSavedCategoryIds] = useState([]);
+  const [fetchPreviewPending, setFetchPreviewPending] = useState(false);
+  const [fetchPreviewHint, setFetchPreviewHint] = useState(null);
 
   const refreshSavedCategories = useCallback(() => {
     getBookmarkCategories().then(setSavedCategoryIds).catch(() => {});
@@ -30,6 +32,57 @@ export default function AddBookmark() {
   useEffect(() => {
     refreshSavedCategories();
   }, [refreshSavedCategories]);
+
+  useEffect(() => {
+    setFetchPreviewHint(null);
+  }, [url]);
+
+  const handleFetchFromPage = async () => {
+    if (!url.trim()) {
+      setFetchPreviewHint('Enter a URL first.');
+      return;
+    }
+    setFetchPreviewPending(true);
+    setFetchPreviewHint(null);
+    setFormError(null);
+    const hadLabel = !label.trim();
+    const hadNotes = !notes.trim();
+    try {
+      const p = await fetchBookmarkLinkPreview(url);
+      if (p.image_url) setImageUrl(p.image_url);
+      if (p.suggested_title && hadLabel) setLabel(p.suggested_title);
+      if (p.suggested_description && hadNotes) setNotes(p.suggested_description);
+
+      const appliedLabels = [];
+      if (p.image_url) appliedLabels.push('image');
+      if (p.suggested_title && hadLabel) appliedLabels.push('title');
+      if (p.suggested_description && hadNotes) appliedLabels.push('description');
+
+      if (!p.image_url && !p.suggested_title && !p.suggested_description) {
+        setFetchPreviewHint(
+          'No Open Graph data on that page (some sites only expose it to search crawlers). Paste an image URL manually if you need a thumbnail.',
+        );
+      } else if (appliedLabels.length === 0) {
+        setFetchPreviewHint(
+          'The page had text hints but your title and description are already filled, and no image URL was found. Clear those fields and try again if you want to replace them.',
+        );
+      } else {
+        const nice = appliedLabels.map((k) =>
+          k === 'image' ? 'image' : k === 'title' ? 'title' : 'description',
+        );
+        const kept = [];
+        if (!hadLabel && p.suggested_title) kept.push('title');
+        if (!hadNotes && p.suggested_description) kept.push('description');
+        const keptMsg =
+          kept.length > 0 ? ` Left your existing ${kept.join(' and ')} as-is.` : '';
+        setFetchPreviewHint(`Loaded ${nice.join(', ')} from the page.${keptMsg}`);
+      }
+    } catch (err) {
+      setFetchPreviewHint(err.message || 'Could not load preview.');
+    } finally {
+      setFetchPreviewPending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -92,7 +145,8 @@ export default function AddBookmark() {
     <div className="page-content page-shell page-shell--add">
       <h2 className="page-title">Add bookmark</h2>
       <p className="page-shell__intro">
-        Save a URL to your bookmark collection — separate from titles on your watchlist. Optional title, category, image, and notes.
+        Save a URL to your bookmark collection — separate from titles on your watchlist. Use{' '}
+        <strong>Load title, image, and description from page</strong> under the URL to pull Open Graph data automatically, or fill fields by hand.
       </p>
       <form className="form-add-bookmark bookmarks-form" onSubmit={handleSubmit}>
         <BookmarkFormFields
@@ -111,6 +165,9 @@ export default function AddBookmark() {
           setImageUrl={setImageUrl}
           disabled={saving}
           savedCategoryIds={savedCategoryIds}
+          onFetchFromPage={handleFetchFromPage}
+          fetchFromPagePending={fetchPreviewPending}
+          fetchFromPageHint={fetchPreviewHint}
         />
         {formError ? (
           <p className="form-add-bookmark__error" role="alert">
