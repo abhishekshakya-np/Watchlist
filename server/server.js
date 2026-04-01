@@ -5,6 +5,8 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
+import { timingSafeEqual } from 'crypto';
 import { createServer as createHttpServer } from 'http';
 import { existsSync } from 'fs';
 import { readdir, unlink, stat } from 'fs/promises';
@@ -14,9 +16,9 @@ import db from './db.js';
 import { setupTelegramBackup, runTelegramBackupNow } from './telegram-backup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Load .env from project root then server/ so key in either place works
+// Load .env from project root then server/ — server/.env overrides root (e.g. root ADMIN_PASSWORD= empty must not block server/.env)
 dotenv.config({ path: join(__dirname, '..', '.env') });
-dotenv.config({ path: join(__dirname, '.env') });
+dotenv.config({ path: join(__dirname, '.env'), override: true });
 
 // ----- Helpers -----
 const TITLE_COLUMNS = ['slug', 'title', 'name', 'alternate_title', 'native_title', 'romaji', 'note', 'cover_image', 'banner_image', 'media_type', 'format', 'genres', 'tags', 'release_status', 'release_date', 'release_date_end', 'season', 'chapters', 'average_score', 'mean_score', 'popularity', 'popularity_rank', 'description', 'description_short', 'source_credit', 'source_type', 'trailer_url', 'type_specific'];
@@ -167,8 +169,119 @@ async function mergeBackup(backup) {
 
 const DEMO_USER = 'me';
 const app = express();
-app.use(cors());
+
+function adminPasswordConfigured() {
+  return Boolean(process.env.ADMIN_PASSWORD && String(process.env.ADMIN_PASSWORD).trim());
+}
+
+function requireAdmin(req, res, next) {
+  if (!adminPasswordConfigured()) return next();
+  if (req.session?.admin === true) return next();
+  return res.status(401).json({ error: 'Unauthorized' });
+}
+
+function safeEqualPassword(input, expected) {
+  if (typeof input !== 'string' || typeof expected !== 'string') return false;
+  const a = Buffer.from(input, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
+
+const sessionSecret =
+  process.env.ADMIN_SESSION_SECRET ||
+  process.env.ADMIN_PASSWORD ||
+  'watchlist-dev-session-insecure';
+
+app.use(
+  session({
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    name: 'watchlist.admin.sid',
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    },
+  }),
+);
+
+app.get('/api/admin/session', (req, res) => {
+  res.json({
+    ok: adminPasswordConfigured() && req.session?.admin === true,
+    configured: adminPasswordConfigured(),
+  });
+});
+
+app.post('/api/admin/login', (req, res) => {
+  if (!adminPasswordConfigured()) {
+    return res.status(503).json({
+      error: 'Admin login is disabled until ADMIN_PASSWORD is set in server or root .env',
+    });
+  }
+  const p = req.body?.password;
+  if (!safeEqualPassword(String(p ?? ''), String(process.env.ADMIN_PASSWORD))) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+  req.session.admin = true;
+  res.json({ ok: true });
+});
+
+app.post('/api/admin/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.clearCookie('watchlist.admin.sid', {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    res.json({ ok: true });
+  });
+});
+
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const count = (row) => {
+      if (row == null || typeof row !== 'object') return 0;
+      const raw = row.c ?? row.C ?? row.count ?? row.COUNT;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const mediaKey = (row) => {
+      const v = row?.media_type ?? row?.MEDIA_TYPE;
+      return v != null && String(v).trim() !== '' ? String(v) : 'other';
+    };
+    const [titleRow, listRow, bookmarkRow, typeRows] = await Promise.all([
+      db.queryOne('SELECT COUNT(*) AS c FROM titles'),
+      db.queryOne('SELECT COUNT(*) AS c FROM user_list'),
+      db.queryOne('SELECT COUNT(*) AS c FROM bookmarks'),
+      db.query('SELECT media_type AS media_type, COUNT(*) AS c FROM titles GROUP BY media_type'),
+    ]);
+    const byMediaType = {};
+    for (const row of typeRows || []) {
+      const key = mediaKey(row);
+      byMediaType[key] = count(row);
+    }
+    res.json({
+      titles: count(titleRow),
+      userList: count(listRow),
+      bookmarks: count(bookmarkRow),
+      byMediaType,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 function normalizeBookmarkUrl(raw) {
   const t = String(raw ?? '').trim();
@@ -524,7 +637,7 @@ app.get('/api/titles/:id/related', async (req, res) => {
     res.json(rows.map((r) => ({ relation_type: r.relation_type, related_title_id: r.related_title_id, title: { id: r.related_title_id, slug: r.slug, title: r.title, cover_image: r.cover_image, media_type: r.media_type, release_date: r.release_date } })));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/titles/:id/related', async (req, res) => {
+app.post('/api/titles/:id/related', requireAdmin, async (req, res) => {
   try {
     const titleId = Number(req.params.id);
     const { related_title_id, relation_type } = req.body;
@@ -544,7 +657,7 @@ app.post('/api/titles/:id/related', async (req, res) => {
     res.status(201).json({ ok: true, relation_type: type, related_title_id: relatedId });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.delete('/api/titles/:id/related/:relatedId', async (req, res) => {
+app.delete('/api/titles/:id/related/:relatedId', requireAdmin, async (req, res) => {
   try {
     const titleId = req.params.id;
     const relatedId = req.params.relatedId;
@@ -564,7 +677,7 @@ app.get('/api/titles/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/titles', async (req, res) => {
+app.post('/api/titles', requireAdmin, async (req, res) => {
   try {
     const b = req.body;
     const rawSlug = (b.slug || b.title || '').toString().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -629,7 +742,7 @@ app.post('/api/titles', async (req, res) => {
     res.status(400).json({ error: msg });
   }
 });
-app.patch('/api/titles/:id', async (req, res) => {
+app.patch('/api/titles/:id', requireAdmin, async (req, res) => {
   try {
     const existing = await db.queryOne('SELECT * FROM titles WHERE id = ?', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Not found' });
@@ -644,7 +757,7 @@ app.patch('/api/titles/:id', async (req, res) => {
     res.json(rowToTitle(row));
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.delete('/api/titles/:id', async (req, res) => {
+app.delete('/api/titles/:id', requireAdmin, async (req, res) => {
   try {
     const r = await db.run('DELETE FROM titles WHERE id = ?', [req.params.id]);
     if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
@@ -658,7 +771,7 @@ app.get('/api/user/list', async (req, res) => {
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/user/list', async (req, res) => {
+app.post('/api/user/list', requireAdmin, async (req, res) => {
   try {
     const { title_id, status = 'planning', score, progress } = req.body;
     await db.run('INSERT INTO user_list (user_id, title_id, status, score, progress) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, title_id) DO UPDATE SET status=excluded.status, score=excluded.score, progress=excluded.progress', [DEMO_USER, title_id, status, score ?? null, progress ?? null]);
@@ -666,7 +779,7 @@ app.post('/api/user/list', async (req, res) => {
     res.status(201).json(row);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.patch('/api/user/list/:titleId', async (req, res) => {
+app.patch('/api/user/list/:titleId', requireAdmin, async (req, res) => {
   try {
     const { status, score, progress } = req.body;
     const r = await db.run('UPDATE user_list SET status=COALESCE(?,status), score=?, progress=COALESCE(?,progress) WHERE user_id=? AND title_id=?', [status ?? null, score ?? null, progress ?? null, DEMO_USER, req.params.titleId]);
@@ -675,7 +788,7 @@ app.patch('/api/user/list/:titleId', async (req, res) => {
     res.json(row);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.delete('/api/user/list/:titleId', async (req, res) => {
+app.delete('/api/user/list/:titleId', requireAdmin, async (req, res) => {
   try {
     const r = await db.run('DELETE FROM user_list WHERE user_id = ? AND title_id = ?', [DEMO_USER, req.params.titleId]);
     if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
@@ -705,7 +818,7 @@ function sendLinkPreviewError(res, e) {
   res.status(400).json({ error: msg });
 }
 
-app.get('/api/bookmarks/link-preview', async (req, res) => {
+app.get('/api/bookmarks/link-preview', requireAdmin, async (req, res) => {
   try {
     const preview = await bookmarkLinkPreviewFromRawUrl(req.query.url);
     res.json(preview);
@@ -714,7 +827,7 @@ app.get('/api/bookmarks/link-preview', async (req, res) => {
   }
 });
 
-app.post('/api/bookmarks/link-preview', async (req, res) => {
+app.post('/api/bookmarks/link-preview', requireAdmin, async (req, res) => {
   try {
     const preview = await bookmarkLinkPreviewFromRawUrl(req.body?.url);
     res.json(preview);
@@ -761,7 +874,7 @@ app.get('/api/bookmarks', async (req, res) => {
     res.json(rows);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/bookmarks', async (req, res) => {
+app.post('/api/bookmarks', requireAdmin, async (req, res) => {
   try {
     const url = normalizeBookmarkUrl(req.body?.url);
     const label = req.body.label != null && String(req.body.label).trim() !== '' ? String(req.body.label).trim() : null;
@@ -793,7 +906,7 @@ app.post('/api/bookmarks', async (req, res) => {
     return res.status(400).json({ error: e.message });
   }
 });
-app.patch('/api/bookmarks/:id', async (req, res) => {
+app.patch('/api/bookmarks/:id', requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ error: 'Invalid id' });
@@ -819,7 +932,7 @@ app.patch('/api/bookmarks/:id', async (req, res) => {
     res.json(row);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.delete('/api/bookmarks/:id', async (req, res) => {
+app.delete('/api/bookmarks/:id', requireAdmin, async (req, res) => {
   try {
     const r = await db.run('DELETE FROM bookmarks WHERE id = ?', [req.params.id]);
     if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
@@ -827,7 +940,7 @@ app.delete('/api/bookmarks/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/backup/export', async (req, res) => {
+app.get('/api/backup/export', requireAdmin, async (req, res) => {
   try {
     const backup = await exportBackup();
     res.setHeader('Content-Type', 'application/json');
@@ -835,13 +948,13 @@ app.get('/api/backup/export', async (req, res) => {
     res.send(JSON.stringify(backup, null, 2));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/backup/restore', async (req, res) => {
+app.post('/api/backup/restore', requireAdmin, async (req, res) => {
   try {
     await restoreBackup(req.body);
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.post('/api/backup/merge', async (req, res) => {
+app.post('/api/backup/merge', requireAdmin, async (req, res) => {
   try {
     await mergeBackup(req.body);
     res.json({ ok: true });
@@ -849,6 +962,8 @@ app.post('/api/backup/merge', async (req, res) => {
 });
 
 let lastTelegramBrowserBackupAt = 0;
+// Not behind requireAdmin: must work for anonymous SPA loads when TELEGRAM_BACKUP_ON_BROWSER_OPEN=1
+// (e.g. early production with ADMIN_PASSWORD set). Gated by env flag, cooldown, and optional TELEGRAM_BACKUP_BROWSER_SECRET.
 app.post('/api/backup/trigger-telegram', async (req, res) => {
   try {
     if (!/^1|true|yes$/i.test(String(process.env.TELEGRAM_BACKUP_ON_BROWSER_OPEN || '').trim())) {
@@ -891,7 +1006,7 @@ function normLookupResult(r) {
 const IMDB_MOVIE_TYPES = ['MOVIE'];
 const IMDB_SERIES_TYPES = ['TV_SERIES', 'TV_MINI_SERIES', 'TV_SPECIAL', 'TV_MOVIE', 'TVSERIES', 'TVMINISERIES', 'TVSPECIAL', 'TVMOVIE'];
 
-app.get('/api/lookup', async (req, res) => {
+app.get('/api/lookup', requireAdmin, async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     const type = req.query.type; // 'movie' | 'series' | 'game' | 'book'
@@ -1033,6 +1148,9 @@ app.get('/api/lookup', async (req, res) => {
 const clientRoot = join(__dirname, '..', 'client');
 const clientDist = join(clientRoot, 'dist');
 const isDev = process.env.NODE_ENV !== 'production';
+/** When true with NODE_ENV=development, serve /api only (no Vite). Use with Vite on 5173 → proxy to this port. */
+const devApiOnly =
+  isDev && /^1|true|yes$/i.test(String(process.env.DEV_API_ONLY ?? process.env.WATCHLIST_DEV_API_ONLY ?? '').trim());
 
 /** Vite writes `vite.config.js.timestamp-*.mjs` cache files under client/ — clear leftovers; Vite recreates what it needs. */
 const VITE_TS_CACHE = /^vite\.config\.js\.timestamp.+\.mjs$/;
@@ -1103,8 +1221,8 @@ function attachPortInUseHelp(server, port) {
       `\nPort ${port} is already in use (another Watchlist or app is using it).\n` +
         '  • Stop the other terminal running npm run dev / npm start, or\n' +
         '  • Windows: from repo root run  .\\scripts\\free-port-3001.ps1\n' +
-        '  • Or use another port:  $env:PORT=3002; npm start\n' +
-        '  • If you use client-only Vite (port 5173), set the same port in client/.env: VITE_API_PROXY_PORT=3002\n',
+        '  • Split dev on another port:  npm run dev:split:3002  (API 3002 + Vite → proxy 3002)\n' +
+        '  • Or:  $env:PORT=3002; npm run dev:api   and set VITE_API_PROXY_PORT=3002 for Vite\n',
     );
     process.exit(1);
   });
@@ -1132,6 +1250,18 @@ function scheduleViteTimestampCacheCleanup(root) {
 async function start() {
   await db.init();
   const { onListen: telegramOnListen } = setupTelegramBackup(exportBackup);
+  const PORT = Number(process.env.PORT) || 3001;
+
+  if (devApiOnly) {
+    const httpServer = createHttpServer(app);
+    attachPortInUseHelp(httpServer, PORT);
+    httpServer.listen(PORT, () => {
+      console.log(`http://localhost:${PORT}  (API only — Vite on 5173 proxies here; or use "npm run dev" on this port for all-in-one)`);
+      if (db.isPg()) console.log('Using PostgreSQL (persistent)');
+      telegramOnListen?.();
+    });
+    return;
+  }
 
   if (isDev) {
     await removeAllViteTimestampFiles(clientRoot);
@@ -1147,7 +1277,6 @@ async function start() {
     });
     app.use(vite.middlewares);
 
-    const PORT = Number(process.env.PORT) || 3001;
     attachPortInUseHelp(httpServer, PORT);
     httpServer.listen(PORT, () => {
       console.log(`http://localhost:${PORT}`);
@@ -1164,7 +1293,6 @@ async function start() {
         res.sendFile(join(clientDist, 'index.html'));
       });
     }
-    const PORT = Number(process.env.PORT) || 3001;
     const server = createHttpServer(app);
     attachPortInUseHelp(server, PORT);
     server.listen(PORT, () => {

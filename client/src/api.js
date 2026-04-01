@@ -1,93 +1,171 @@
 /** API base and fetch helpers — single place for all /api calls */
 export const API = import.meta.env.VITE_API_URL || '/api';
 
+const ADMIN_REQUEST_TIMEOUT_MS = 20_000;
+
+async function apiFetch(input, init = {}) {
+  return fetch(input, { credentials: 'include', ...init });
+}
+
+/** Resolves/rejects with `promise`, or rejects after `ADMIN_REQUEST_TIMEOUT_MS` (clears timer; aborts fetch). */
+function raceAdminRequest(promise, abortCtrl, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      abortCtrl.abort();
+      reject(new Error(timeoutMessage));
+    }, ADMIN_REQUEST_TIMEOUT_MS);
+    promise.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+export async function getAdminSession() {
+  const ctrl = new AbortController();
+  const r = await raceAdminRequest(
+    apiFetch(`${API}/admin/session`, { signal: ctrl.signal }),
+    ctrl,
+    'Server did not respond in time. Check that the app is running and try again.',
+  );
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return {
+    ok: data.ok === true,
+    configured: data.configured === true,
+  };
+}
+
+export async function adminLogin(password) {
+  const ctrl = new AbortController();
+  const r = await raceAdminRequest(
+    apiFetch(`${API}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+      signal: ctrl.signal,
+    }),
+    ctrl,
+    'Sign-in timed out. From repo root run npm run dev (http://localhost:3001), or npm run dev:split / npm run dev:api so port 5173 can reach the API (or set VITE_API_PROXY_PORT).',
+  );
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+export async function adminLogout() {
+  const r = await apiFetch(`${API}/admin/logout`, { method: 'POST' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+/** Aggregate counts for admin dashboard (requires admin session when ADMIN_PASSWORD is set). */
+export async function getAdminStats() {
+  const r = await apiFetch(`${API}/admin/stats`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return {
+    titles: Number(data.titles) || 0,
+    userList: Number(data.userList) || 0,
+    bookmarks: Number(data.bookmarks) || 0,
+    byMediaType: data.byMediaType && typeof data.byMediaType === 'object' ? data.byMediaType : {},
+  };
+}
+
 export async function getTitles(params = {}) {
-  const r = await fetch(`${API}/titles?${new URLSearchParams(params)}`);
+  const r = await apiFetch(`${API}/titles?${new URLSearchParams(params)}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getTitleBySlug(slug) {
-  const r = await fetch(`${API}/titles/slug/${encodeURIComponent(slug)}`);
+  const r = await apiFetch(`${API}/titles/slug/${encodeURIComponent(slug)}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function updateTitle(id, body) {
-  const r = await fetch(`${API}/titles/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const r = await apiFetch(`${API}/titles/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || r.statusText);
   return data;
 }
 
 export async function getFeedTrending(type, limit = 8) {
-  const r = await fetch(`${API}/titles/feed/trending?type=${type}&limit=${limit}`);
+  const r = await apiFetch(`${API}/titles/feed/trending?type=${type}&limit=${limit}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getFeedTop(type, limit = 8) {
-  const r = await fetch(`${API}/titles/feed/top?type=${type}&limit=${limit}`);
+  const r = await apiFetch(`${API}/titles/feed/top?type=${type}&limit=${limit}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getFeedRecent(type, limit = 8) {
-  const r = await fetch(`${API}/titles/feed/recent?type=${type}&limit=${limit}`);
+  const r = await apiFetch(`${API}/titles/feed/recent?type=${type}&limit=${limit}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getFeedUpcoming(type, limit = 8) {
-  const r = await fetch(`${API}/titles/feed/upcoming?type=${type}&limit=${limit}`);
+  const r = await apiFetch(`${API}/titles/feed/upcoming?type=${type}&limit=${limit}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getUserList() {
-  const r = await fetch(`${API}/user/list`);
+  const r = await apiFetch(`${API}/user/list`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function addToList(titleId, opts = {}) {
-  const r = await fetch(`${API}/user/list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title_id: titleId, status: 'planning', ...opts }) });
+  const r = await apiFetch(`${API}/user/list`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title_id: titleId, status: 'planning', ...opts }) });
   if (!r.ok) throw new Error((await r.json()).error || r.statusText);
   return r.json();
 }
 
 export async function updateListEntry(titleId, opts) {
-  const r = await fetch(`${API}/user/list/${titleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts) });
+  const r = await apiFetch(`${API}/user/list/${titleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts) });
   if (!r.ok) throw new Error((await r.json()).error || r.statusText);
   return r.json();
 }
 
 export async function removeFromList(titleId) {
-  const r = await fetch(`${API}/user/list/${titleId}`, { method: 'DELETE' });
+  const r = await apiFetch(`${API}/user/list/${titleId}`, { method: 'DELETE' });
   if (!r.ok) throw new Error((await r.json()).error || r.statusText);
 }
 
 export async function getListEntry(titleId) {
-  const r = await fetch(`${API}/user/list/entry/${titleId}`);
+  const r = await apiFetch(`${API}/user/list/entry/${titleId}`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function getRelatedTitles(titleId) {
-  const r = await fetch(`${API}/titles/${titleId}/related`);
+  const r = await apiFetch(`${API}/titles/${titleId}/related`);
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 
 export async function addRelatedTitle(titleId, related_title_id, relation_type) {
-  const r = await fetch(`${API}/titles/${titleId}/related`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ related_title_id, relation_type }) });
+  const r = await apiFetch(`${API}/titles/${titleId}/related`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ related_title_id, relation_type }) });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || r.statusText);
   return data;
 }
 
 export async function createTitle(payload) {
-  const r = await fetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  const r = await apiFetch(`${API}/titles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
   const data = await r.json();
   if (!r.ok) {
     const err = new Error(data.error || r.statusText);
@@ -99,12 +177,12 @@ export async function createTitle(payload) {
 }
 
 export async function removeRelatedTitle(titleId, relatedId) {
-  const r = await fetch(`${API}/titles/${titleId}/related/${relatedId}`, { method: 'DELETE' });
+  const r = await apiFetch(`${API}/titles/${titleId}/related/${relatedId}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
 }
 
 export async function deleteTitle(id) {
-  const r = await fetch(`${API}/titles/${id}`, { method: 'DELETE' });
+  const r = await apiFetch(`${API}/titles/${id}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
 }
 
@@ -115,7 +193,7 @@ export async function getBookmarks(params = {}) {
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   let r;
   try {
-    r = await fetch(`${API}/bookmarks${suffix}`);
+    r = await apiFetch(`${API}/bookmarks${suffix}`);
   } catch (e) {
     throw new Error(
       e.message === 'Failed to fetch'
@@ -157,7 +235,7 @@ async function uniqueCategoriesFromBookmarks() {
 
 async function categoriesFromCategoriesEndpoint() {
   try {
-    const r = await fetch(`${API}/bookmarks/categories`);
+    const r = await apiFetch(`${API}/bookmarks/categories`);
     const text = await r.text();
     let data = {};
     try {
@@ -192,7 +270,7 @@ export async function getBookmarkCategories() {
 export async function fetchBookmarkLinkPreview(pageUrl) {
   let r;
   try {
-    r = await fetch(`${API}/bookmarks/link-preview`, {
+    r = await apiFetch(`${API}/bookmarks/link-preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: pageUrl }),
@@ -223,7 +301,7 @@ export async function createBookmark(body) {
   const tid = setTimeout(() => ctrl.abort(), bookmarkFetchTimeoutMs());
   let r;
   try {
-    r = await fetch(`${API}/bookmarks`, {
+    r = await apiFetch(`${API}/bookmarks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -264,7 +342,7 @@ export async function createBookmark(body) {
 }
 
 export async function updateBookmark(id, body) {
-  const r = await fetch(`${API}/bookmarks/${id}`, {
+  const r = await apiFetch(`${API}/bookmarks/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -275,14 +353,14 @@ export async function updateBookmark(id, body) {
 }
 
 export async function deleteBookmark(id) {
-  const r = await fetch(`${API}/bookmarks/${id}`, { method: 'DELETE' });
+  const r = await apiFetch(`${API}/bookmarks/${id}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 204) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
 }
 
 export async function lookupTitle(q, type, opts = {}) {
   const params = { q, type };
   if (opts.expandSeasons) params.expand = 'seasons';
-  const r = await fetch(`${API}/lookup?${new URLSearchParams(params)}`);
+  const r = await apiFetch(`${API}/lookup?${new URLSearchParams(params)}`);
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || r.statusText || 'Lookup failed');
   const results = Array.isArray(data) ? data : (data.results || data.titles || []);

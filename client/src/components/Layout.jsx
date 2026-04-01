@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { SHELL_THEMES, SHELL_THEME_STORAGE_KEY } from '../constants.js';
-import HeaderAddDropdown from './HeaderAddDropdown.jsx';
 
-const LIGHT_SHELL_PATHS = new Set(['/', '/browse', '/lists', '/backup', '/bookmarks', '/add', '/add-bookmark']);
+const LIGHT_SHELL_PATHS = new Set([
+  '/',
+  '/browse',
+  '/lists',
+  '/bookmarks',
+  '/admin',
+  '/admin/login',
+  '/admin/backup',
+  '/admin/add',
+  '/admin/add-bookmark',
+]);
 
 function isLightShellRoute(pathname) {
   const normalized = pathname.replace(/\/$/, '') || '/';
@@ -65,12 +74,11 @@ export default function Layout() {
             <NavLink to="/bookmarks" className={({ isActive }) => (isActive ? 'active' : '')}>
               Bookmarks
             </NavLink>
-            <NavLink to="/backup" className={({ isActive }) => (isActive ? 'active' : '')}>
-              Backup
-            </NavLink>
           </nav>
           <div className="site-header__actions">
-            <HeaderAddDropdown />
+            <NavLink to="/admin" className="site-header__admin">
+              Admin
+            </NavLink>
           </div>
         </div>
       </header>
@@ -127,7 +135,7 @@ export default function Layout() {
                 </div>
                 <div className="site-footer-home__col">
                   <span className="site-footer-home__col-title">Info</span>
-                  <NavLink to="/backup">Backup</NavLink>
+                  <NavLink to="/admin">Admin</NavLink>
                   <a href="https://github.com/abhishekshakya-np" target="_blank" rel="noopener noreferrer">
                     Contact
                   </a>

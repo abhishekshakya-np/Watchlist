@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { addToList, updateListEntry, removeFromList } from '../api.js';
 import { STATUS_OPTIONS } from '../constants.js';
 
-export default function ListScoreWidget({ titleId, entry, onUpdate }) {
+function statusLabel(value) {
+  return STATUS_OPTIONS.find((o) => o.value === value)?.label || value;
+}
+
+export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = true }) {
   const [status, setStatus] = useState(entry?.status || 'planning');
   const [score, setScore] = useState(entry?.score ?? '');
   const [progress, setProgress] = useState(entry?.progress ?? '');
@@ -36,6 +41,44 @@ export default function ListScoreWidget({ titleId, entry, onUpdate }) {
       setLoading(false);
     }
   };
+
+  if (!canEdit) {
+    if (entry) {
+      return (
+        <div className="list-score-widget list-score-widget--readonly">
+          <h3 className="widget-title">On the list</h3>
+          <dl className="list-score-widget__readonly">
+            <div className="list-score-widget__readonly-row">
+              <dt>Status</dt>
+              <dd>{statusLabel(entry.status)}</dd>
+            </div>
+            {entry.score != null && entry.score !== '' ? (
+              <div className="list-score-widget__readonly-row">
+                <dt>Score</dt>
+                <dd>{entry.score}</dd>
+              </div>
+            ) : null}
+            {entry.progress ? (
+              <div className="list-score-widget__readonly-row">
+                <dt>Progress</dt>
+                <dd>{entry.progress}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </div>
+      );
+    }
+    return (
+      <div className="list-score-widget list-score-widget--readonly">
+        <h3 className="widget-title">Your list</h3>
+        <p className="list-score-widget__readonly-note">
+          This title is not on the shared list. An admin can add it after{' '}
+          <Link to={`/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`}>signing in</Link>.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="list-score-widget">
       <h3 className="widget-title">Your list</h3>
@@ -53,7 +96,9 @@ export default function ListScoreWidget({ titleId, entry, onUpdate }) {
             disabled={loading}
           >
             {STATUS_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
+              <option key={value} value={value}>
+                {label}
+              </option>
             ))}
           </select>
           <label className="widget-label">Score (1–10)</label>

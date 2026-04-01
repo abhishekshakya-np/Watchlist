@@ -6,6 +6,7 @@ import {
   getRelatedTitles,
   deleteTitle,
 } from '../api.js';
+import { useAdminAuth } from '../context/AdminAuthContext.jsx';
 import DetailHero from '../components/DetailHero.jsx';
 import DetailStatsRow from '../components/DetailStatsRow.jsx';
 import ListScoreWidget from '../components/ListScoreWidget.jsx';
@@ -13,6 +14,7 @@ import AddRelatedModal from '../components/AddRelatedModal.jsx';
 import TitleDetailMainColumn from '../components/TitleDetailMainColumn.jsx';
 
 export default function TitleDetail() {
+  const { canMutate } = useAdminAuth();
   const { slug } = useParams();
   const navigate = useNavigate();
   const [title, setTitle] = useState(null);
@@ -78,20 +80,24 @@ export default function TitleDetail() {
       <div className="two-col detail-cols">
         <TitleDetailMainColumn title={title} related={related} />
         <div className="detail-sidebar">
-          <div className="detail-actions">
-            <Link to={`/title/${title.slug}/edit`} className="btn secondary">Edit title</Link>
-            <button type="button" className="btn secondary" onClick={() => setShowAddRelated(true)}>
-              Add related title
-            </button>
-            <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Delete title'}
-            </button>
-            {deleteError && <p className="form-error detail-action-error">{deleteError}</p>}
-          </div>
-          <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} />
+          {canMutate ? (
+            <div className="detail-actions">
+              <Link to={`/title/${title.slug}/edit`} className="btn secondary">
+                Edit title
+              </Link>
+              <button type="button" className="btn secondary" onClick={() => setShowAddRelated(true)}>
+                Add related title
+              </button>
+              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Delete title'}
+              </button>
+              {deleteError && <p className="form-error detail-action-error">{deleteError}</p>}
+            </div>
+          ) : null}
+          <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} canEdit={canMutate} />
         </div>
       </div>
-      {showAddRelated && (
+      {showAddRelated && canMutate ? (
         <AddRelatedModal
           titleId={title.id}
           currentTitle={title}
@@ -101,7 +107,7 @@ export default function TitleDetail() {
             setShowAddRelated(false);
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }
