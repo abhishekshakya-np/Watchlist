@@ -807,3 +807,67 @@
 .home-loading {
   padding: var(--space-xl) 0;
 }
+
+/* Title detail — match Home / Browse shell (header, footer, theme tokens) */
+.app-layout--home .detail-page {
+  width: 100%;
+}
+
+.app-layout--home .detail-hero {
+  margin-left: calc(-1 * clamp(var(--space-lg), 5vw, 32px));
+  margin-right: calc(-1 * clamp(var(--space-lg), 5vw, 32px));
+  margin-top: calc(-1 * clamp(var(--space-lg), 4vw, var(--space-xl)));
+}
+
+.app-layout--home .detail-hero-banner:not([style*='url']) {
+  background: linear-gradient(135deg, var(--bg-soft) 0%, var(--home-card) 100%);
+}
+
+.app-layout--home .detail-hero-cover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.app-layout--home .detail-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space);
+  margin-top: var(--space);
+}
+
+.app-layout--home .detail-hero-badges .badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--home-card));
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.app-layout--home .detail-main .detail-section {
+  background: var(--home-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.app-layout--home .detail-main .detail-section h3 {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.app-layout--home .detail-sidebar .list-score-widget {
+  background: var(--home-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.app-layout--home .related-link {
+  background: var(--home-card);
+}
+
+.app-layout--home .related-link:hover {
+  background: var(--bg-soft);
+}

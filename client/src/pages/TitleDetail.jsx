@@ -63,7 +63,7 @@ export default function TitleDetail() {
   if (loading) return <p className="loading">Loading…</p>;
   if (error || !title) {
     return (
-      <div className="page-content">
+      <div className="page-content page-shell">
         <h2 className="page-title">Title not found</h2>
         <p className="error">{error || 'This title doesn’t exist or was removed.'}</p>
         <Link to="/" className="btn primary">Go to Home</Link>

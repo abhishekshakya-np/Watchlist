@@ -40,7 +40,7 @@ export default function EditTitle() {
   };
 
   return (
-    <div className="page-content">
+    <div className="page-content page-shell">
       <h2 className="page-title">Edit title</h2>
       <p className="form-description">
         <Link to={`/title/${title.slug}`}>← Back to {title.title}</Link>

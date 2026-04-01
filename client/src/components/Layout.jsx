@@ -6,7 +6,9 @@ const LIGHT_SHELL_PATHS = new Set(['/', '/browse', '/lists', '/backup', '/add'])
 
 function isLightShellRoute(pathname) {
   const normalized = pathname.replace(/\/$/, '') || '/';
-  return LIGHT_SHELL_PATHS.has(normalized);
+  if (LIGHT_SHELL_PATHS.has(normalized)) return true;
+  /* Title detail + edit use the same shell / theme as Home & Browse */
+  return normalized.startsWith('/title/');
 }
 
 function readStoredShellTheme() {
