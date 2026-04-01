@@ -154,11 +154,17 @@
 }
 
 .bookmark-directory__input,
-.bookmark-directory__textarea,
-.bookmark-directory__select {
+.bookmark-directory__textarea {
   background: var(--bg-elevated);
   border-color: var(--border);
   color: var(--text);
+}
+
+.bookmark-directory__select {
+  width: 100%;
+  background-color: var(--bg-elevated);
+  font-size: var(--text-sm);
+  line-height: 1.4;
 }
 
 .bookmark-directory__input--mt {

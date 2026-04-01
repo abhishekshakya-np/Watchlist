@@ -101,7 +101,11 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
           </p>
           <div className="form-group">
             <label>Relation type</label>
-            <select value={relationType} onChange={(e) => setRelationType(e.target.value)}>
+            <select
+              className="native-select"
+              value={relationType}
+              onChange={(e) => setRelationType(e.target.value)}
+            >
               {RELATION_TYPES.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}

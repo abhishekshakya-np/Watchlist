@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { updateBookmark } from '../api.js';
+import { useState, useEffect } from 'react';
+import { updateBookmark, getBookmarkCategories } from '../api.js';
 import BookmarkFormFields from './BookmarkFormFields.jsx';
 import { BOOKMARK_CATEGORY_PRESETS } from '../constants.js';
 
@@ -13,22 +13,35 @@ function effectiveCategoryId(category, categoryCustom) {
   return category || 'general';
 }
 
-function splitCategoryForForm(stored) {
-  const c = stored?.trim() || 'general';
-  if (PRESET_IDS.has(c)) return { category: c, categoryCustom: '' };
-  return { category: 'custom', categoryCustom: c };
-}
-
 export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
-  const { category: initialCat, categoryCustom: initialCustom } = splitCategoryForForm(bookmark.category);
+  const storedCat = bookmark.category?.trim() || 'general';
+  const [savedCategoryIds, setSavedCategoryIds] = useState([]);
+
   const [editUrl, setEditUrl] = useState(bookmark.url);
   const [editLabel, setEditLabel] = useState(bookmark.label ?? '');
   const [editNotes, setEditNotes] = useState(bookmark.notes ?? '');
-  const [editCategory, setEditCategory] = useState(initialCat);
-  const [editCategoryCustom, setEditCategoryCustom] = useState(initialCustom);
+  const [editCategory, setEditCategory] = useState(() => (PRESET_IDS.has(storedCat) ? storedCat : 'custom'));
+  const [editCategoryCustom, setEditCategoryCustom] = useState(() => (PRESET_IDS.has(storedCat) ? '' : storedCat));
   const [editImageUrl, setEditImageUrl] = useState(bookmark.image_url ?? '');
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  useEffect(() => {
+    getBookmarkCategories().then(setSavedCategoryIds).catch(() => {});
+  }, [bookmark.id]);
+
+  useEffect(() => {
+    if (savedCategoryIds.length === 0) return;
+    if (PRESET_IDS.has(storedCat)) return;
+    if (
+      savedCategoryIds.includes(storedCat) &&
+      editCategory === 'custom' &&
+      editCategoryCustom === storedCat
+    ) {
+      setEditCategory(storedCat);
+      setEditCategoryCustom('');
+    }
+  }, [savedCategoryIds, storedCat, editCategory, editCategoryCustom]);
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -82,6 +95,7 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
               imageUrl={editImageUrl}
               setImageUrl={setEditImageUrl}
               disabled={editSaving}
+              savedCategoryIds={savedCategoryIds}
             />
             {editError ? (
               <p className="bookmark-directory__form-error" role="alert">

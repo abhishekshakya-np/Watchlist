@@ -43,6 +43,7 @@ export default function ListScoreWidget({ titleId, entry, onUpdate }) {
         <>
           <label className="widget-label">Status</label>
           <select
+            className="native-select"
             value={status}
             onChange={(e) => {
               const v = e.target.value;

@@ -29,6 +29,7 @@ export default function BookmarkFilterBar({ categoryOptions, resultCount }) {
         </label>
         <select
           id="bookmark-filter-category"
+          className="native-select"
           value={category}
           onChange={(e) => setParam('category', e.target.value)}
         >
@@ -45,6 +46,7 @@ export default function BookmarkFilterBar({ categoryOptions, resultCount }) {
         </label>
         <select
           id="bookmark-filter-sort"
+          className="native-select"
           value={sort}
           onChange={(e) => setParam('sort', e.target.value)}
         >

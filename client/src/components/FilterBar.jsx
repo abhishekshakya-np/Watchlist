@@ -20,19 +20,19 @@ export default function FilterBar({ resultCount }) {
     <div className="filter-bar">
       <div className="filter-bar__group">
         <label className="filter-bar__label">Type</label>
-        <select value={type} onChange={(e) => set('type', e.target.value)}>
+        <select className="native-select" value={type} onChange={(e) => set('type', e.target.value)}>
           {MEDIA_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
       <div className="filter-bar__group">
         <label className="filter-bar__label">Status</label>
-        <select value={status} onChange={(e) => set('status', e.target.value)}>
+        <select className="native-select" value={status} onChange={(e) => set('status', e.target.value)}>
           {RELEASE_STATUSES.map(({ value, label }) => <option key={value || 'any'} value={value}>{label}</option>)}
         </select>
       </div>
       <div className="filter-bar__group">
         <label className="filter-bar__label">Sort</label>
-        <select value={sort} onChange={(e) => set('sort', e.target.value)}>
+        <select className="native-select" value={sort} onChange={(e) => set('sort', e.target.value)}>
           {SORT_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>

@@ -1,4 +1,7 @@
-import { BOOKMARK_CATEGORY_PRESETS } from '../constants.js';
+import { useMemo } from 'react';
+import { BOOKMARK_CATEGORY_PRESETS, bookmarkCategoryLabel } from '../constants.js';
+
+const PRESET_IDS = new Set(BOOKMARK_CATEGORY_PRESETS.map((p) => p.id));
 
 export default function BookmarkFormFields({
   idPrefix = '',
@@ -15,8 +18,23 @@ export default function BookmarkFormFields({
   imageUrl,
   setImageUrl,
   disabled = false,
+  savedCategoryIds = [],
 }) {
-  const showCustom = category === 'custom';
+  const extraCategoryIds = useMemo(() => {
+    const seen = new Set(PRESET_IDS);
+    return [...new Set(savedCategoryIds.map((id) => String(id).trim()).filter(Boolean))]
+      .filter((id) => !seen.has(id))
+      .sort((a, b) =>
+        bookmarkCategoryLabel(a).localeCompare(bookmarkCategoryLabel(b), undefined, { sensitivity: 'base' }),
+      );
+  }, [savedCategoryIds]);
+
+  const selectableIds = useMemo(() => new Set([...PRESET_IDS, ...extraCategoryIds]), [extraCategoryIds]);
+
+  const isConcretePick = category !== 'custom' && selectableIds.has(category);
+  const showCustomField = !isConcretePick;
+  const selectDisplayValue = isConcretePick ? category : 'custom';
+  const customFieldValue = category === 'custom' ? categoryCustom : isConcretePick ? '' : category;
 
   return (
     <>
@@ -57,8 +75,8 @@ export default function BookmarkFormFields({
         </label>
         <select
           id={`${idPrefix}bookmark-category`}
-          className="bookmarks-form__input bookmark-directory__input bookmark-directory__select"
-          value={showCustom ? 'custom' : category}
+          className="bookmarks-form__input bookmark-directory__input native-select bookmark-directory__select"
+          value={selectDisplayValue}
           onChange={(ev) => {
             const v = ev.target.value;
             if (v === 'custom') {
@@ -75,20 +93,32 @@ export default function BookmarkFormFields({
               {p.label}
             </option>
           ))}
+          {extraCategoryIds.length > 0 ? (
+            <optgroup label="Saved categories">
+              {extraCategoryIds.map((id) => (
+                <option key={id} value={id}>
+                  {bookmarkCategoryLabel(id)}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
           <option value="custom">Custom…</option>
         </select>
-        {showCustom && (
+        {showCustomField ? (
           <input
             id={`${idPrefix}bookmark-category-custom`}
             type="text"
             className="bookmarks-form__input bookmark-directory__input bookmark-directory__input--mt"
             placeholder="Your category name"
-            value={categoryCustom}
-            onChange={(ev) => setCategoryCustom(ev.target.value)}
+            value={customFieldValue}
+            onChange={(ev) => {
+              setCategory('custom');
+              setCategoryCustom(ev.target.value);
+            }}
             disabled={disabled}
             aria-label="Custom category name"
           />
-        )}
+        ) : null}
       </div>
       <div className="bookmarks-form__row">
         <label htmlFor={`${idPrefix}bookmark-image`} className="bookmarks-form__label bookmark-directory__label">

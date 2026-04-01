@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { createBookmark } from '../api.js';
+import { createBookmark, getBookmarkCategories } from '../api.js';
 import BookmarkFormFields from '../components/BookmarkFormFields.jsx';
 
 function effectiveCategoryId(category, categoryCustom) {
@@ -21,6 +21,15 @@ export default function AddBookmark() {
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [successRow, setSuccessRow] = useState(null);
+  const [savedCategoryIds, setSavedCategoryIds] = useState([]);
+
+  const refreshSavedCategories = useCallback(() => {
+    getBookmarkCategories().then(setSavedCategoryIds).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshSavedCategories();
+  }, [refreshSavedCategories]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +51,7 @@ export default function AddBookmark() {
       setCategory('general');
       setCategoryCustom('');
       setImageUrl('');
+      refreshSavedCategories();
     } catch (err) {
       setFormError(err.message || 'Could not save bookmark.');
     } finally {
@@ -100,6 +110,7 @@ export default function AddBookmark() {
           imageUrl={imageUrl}
           setImageUrl={setImageUrl}
           disabled={saving}
+          savedCategoryIds={savedCategoryIds}
         />
         {formError ? (
           <p className="form-add-bookmark__error" role="alert">

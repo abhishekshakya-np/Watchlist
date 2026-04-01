@@ -464,6 +464,24 @@ app.get('/api/user/list/entry/:titleId', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/bookmarks/categories', async (req, res) => {
+  try {
+    const rows = await db.query(
+      `SELECT DISTINCT TRIM(category) AS cat FROM bookmarks WHERE TRIM(COALESCE(category, '')) != '' ORDER BY cat`,
+    );
+    const categories = rows
+      .map((r) => {
+        if (r == null || typeof r !== 'object') return null;
+        const v = r.cat ?? r.CAT ?? r.Category ?? Object.values(r)[0];
+        return v;
+      })
+      .filter((c) => c != null && String(c).trim() !== '')
+      .map((c) => String(c).trim());
+    res.json({ categories });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 app.get('/api/bookmarks', async (req, res) => {
   try {
     let sql = 'SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE 1=1';
@@ -826,8 +844,10 @@ function attachPortInUseHelp(server, port) {
       `\nPort ${port} is already in use (another Watchlist or app is using it).\n` +
         '  • Stop the other terminal running npm run dev / npm start, or\n' +
         '  • Windows: from repo root run  .\\scripts\\free-port-3001.ps1\n' +
-        '  • Or use another port:  $env:PORT=3002; npm start\n',
+        '  • Or use another port:  $env:PORT=3002; npm start\n' +
+        '  • If you use client-only Vite (port 5173), set the same port in client/.env: VITE_API_PROXY_PORT=3002\n',
     );
+    process.exit(1);
   });
 }
 
@@ -886,12 +906,13 @@ async function start() {
       });
     }
     const PORT = Number(process.env.PORT) || 3001;
-    const server = app.listen(PORT, () => {
+    const server = createHttpServer(app);
+    attachPortInUseHelp(server, PORT);
+    server.listen(PORT, () => {
       console.log(`http://localhost:${PORT}`);
       if (db.isPg()) console.log('Using PostgreSQL (persistent)');
       telegramOnListen?.();
     });
-    attachPortInUseHelp(server, PORT);
   }
 }
 start().catch((err) => { console.error(err); process.exit(1); });

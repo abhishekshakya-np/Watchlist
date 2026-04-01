@@ -33,6 +33,12 @@
     padding: 10px 14px;
   }
 
+  select.native-select {
+    padding-block: 10px;
+    padding-inline-start: 14px;
+    padding-inline-end: calc(14px + var(--space-lg) + var(--space-xl));
+  }
+
   textarea {
     min-height: 80px;
     resize: vertical;

@@ -144,6 +144,50 @@ export async function getBookmarks(params = {}) {
   return Array.isArray(data) ? data : [];
 }
 
+async function uniqueCategoriesFromBookmarks() {
+  const bookmarks = await getBookmarks();
+  const set = new Set();
+  for (const b of bookmarks) {
+    const raw = b.category ?? b.Category;
+    const c = raw != null ? String(raw).trim() : '';
+    if (c) set.add(c);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
+async function categoriesFromCategoriesEndpoint() {
+  try {
+    const r = await fetch(`${API}/bookmarks/categories`);
+    const text = await r.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      return [];
+    }
+    if (r.ok && data && Array.isArray(data.categories)) {
+      return data.categories.map((c) => String(c).trim()).filter(Boolean);
+    }
+  } catch {
+    /* network */
+  }
+  return [];
+}
+
+/**
+ * Distinct non-empty categories used on bookmarks.
+ * Merges GET /bookmarks/categories with categories inferred from GET /bookmarks so the list is never
+ * empty when the DB has custom categories but the dedicated route returns [] (e.g. driver/shape quirks).
+ */
+export async function getBookmarkCategories() {
+  const [fromEndpoint, fromList] = await Promise.all([
+    categoriesFromCategoriesEndpoint(),
+    uniqueCategoriesFromBookmarks().catch(() => []),
+  ]);
+  const merged = new Set([...fromEndpoint, ...fromList]);
+  return [...merged].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+}
+
 function bookmarkFetchTimeoutMs() {
   return 45_000;
 }

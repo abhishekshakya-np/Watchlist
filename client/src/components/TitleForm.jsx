@@ -118,7 +118,11 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
       </div>
       <div className="form-field">
         <label className="form-label">Media type</label>
-        <select value={form.media_type} onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}>
+        <select
+          className="native-select"
+          value={form.media_type}
+          onChange={(e) => setForm((f) => ({ ...f, media_type: e.target.value }))}
+        >
           <option value="series">Series</option>
           <option value="movie">Movie</option>
           <option value="game">Game</option>
@@ -192,7 +196,11 @@ export default function TitleForm({ initial, onSubmit, submitLabel = 'Save', loa
       <p className="form-section-title">Publication</p>
       <div className="form-field">
         <label className="form-label">Release status</label>
-        <select value={form.release_status} onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}>
+        <select
+          className="native-select"
+          value={form.release_status}
+          onChange={(e) => setForm((f) => ({ ...f, release_status: e.target.value }))}
+        >
           <option value="releasing">Releasing</option>
           <option value="finished">Finished</option>
           <option value="not_yet_released">Not yet released</option>
