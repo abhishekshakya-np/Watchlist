@@ -341,21 +341,25 @@
   -webkit-line-clamp: 2;
 }
 
-.bookmark-directory__grid .bookmark-dir-card__actions {
-  margin-top: var(--space-sm);
-  padding-top: var(--space-sm);
+.bookmark-directory__grid .bookmark-dir-card__actions--overlay {
+  top: var(--space-sm);
+  right: var(--space-sm);
   gap: var(--space-sm);
 }
 
-.bookmark-directory__grid .bookmark-dir-card__btn {
+.bookmark-directory__grid .bookmark-dir-card__btn--icon {
+  min-width: 40px;
   min-height: 40px;
-  padding: var(--space-sm) var(--space);
-  font-size: var(--text-sm);
+  width: 40px;
+  height: 40px;
 }
 
 @media (max-width: 767px) {
-  .bookmark-directory__grid .bookmark-dir-card__btn {
+  .bookmark-directory__grid .bookmark-dir-card__btn--icon {
+    min-width: 44px;
     min-height: 44px;
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -378,6 +382,10 @@
   .bookmark-dir-card {
     transition: none;
   }
+}
+
+.bookmark-dir-card__media-wrap {
+  position: relative;
 }
 
 .bookmark-dir-card__media {
@@ -458,11 +466,24 @@
 
 .bookmark-dir-card__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space);
-  margin-top: var(--space);
-  padding-top: var(--space);
-  border-top: 1px solid var(--border);
+  flex-wrap: nowrap;
+  gap: var(--space-sm);
+}
+
+.bookmark-dir-card__actions--overlay {
+  position: absolute;
+  top: var(--space);
+  right: var(--space);
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.bookmark-dir-card__icon-svg {
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .bookmark-dir-card__btn {
@@ -474,10 +495,38 @@
   cursor: pointer;
   border: 1px solid var(--border);
   background: transparent;
+  transition: border-color 0.15s ease-out, color 0.15s ease-out, background-color 0.15s ease-out;
 
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+}
+
+.bookmark-dir-card__btn--icon {
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+
+  &:hover {
+    background: var(--bg-elevated);
+  }
+
+  &:active {
+    background: var(--bg-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookmark-dir-card__btn {
+    transition: none;
   }
 }
 
@@ -490,6 +539,10 @@
   }
 }
 
+.bookmark-dir-card__btn--icon.bookmark-dir-card__btn--ghost:hover {
+  color: var(--text);
+}
+
 .bookmark-dir-card__btn--danger {
   color: #ef4444;
   border-color: rgba(248, 81, 73, 0.45);
@@ -497,6 +550,11 @@
   &:hover {
     background: rgba(248, 81, 73, 0.12);
   }
+}
+
+.bookmark-dir-card__btn--icon.bookmark-dir-card__btn--danger:hover {
+  color: #ef4444;
+  border-color: #ef4444;
 }
 
 .bookmark-directory .empty-state {
