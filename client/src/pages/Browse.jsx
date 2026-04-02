@@ -108,9 +108,9 @@ export default function Browse() {
         <EmptyState title={emptyTitle} message={emptyMsg} />
       ) : (
         <ul className={listClassName}>
-          {titles.map((title, i) => (
+          {titles.map((title) => (
             <li key={title.id}>
-              <TitleCard title={title} rank={i + 1} />
+              <TitleCard title={title} />
             </li>
           ))}
         </ul>
