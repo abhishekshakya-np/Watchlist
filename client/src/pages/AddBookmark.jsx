@@ -1,22 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { createBookmark, getBookmarkCategories, fetchBookmarkLinkPreview } from '../api.js';
+import {
+  createBookmark,
+  getBookmarkCategories,
+  fetchBookmarkLinkPreview,
+  BOOKMARK_URL_DUPLICATE_CODE,
+} from '../api.js';
 import BookmarkFormFields from '../components/BookmarkFormFields.jsx';
+import { bookmarkCategoriesList, bookmarkCategoryLabel } from '../constants.js';
 
-function effectiveCategoryId(category, categoryCustom) {
-  if (category === 'custom') {
-    const t = categoryCustom.trim();
-    return t || 'general';
+function bookmarkSnippetHost(href) {
+  try {
+    return new URL(href).hostname.replace(/^www\./, '');
+  } catch {
+    return href || '';
   }
-  return category || 'general';
 }
 
 export default function AddBookmark() {
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
   const [notes, setNotes] = useState('');
-  const [category, setCategory] = useState('general');
-  const [categoryCustom, setCategoryCustom] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState(['general']);
+  const [customCategoryDraft, setCustomCategoryDraft] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -24,6 +30,7 @@ export default function AddBookmark() {
   const [savedCategoryIds, setSavedCategoryIds] = useState([]);
   const [fetchPreviewPending, setFetchPreviewPending] = useState(false);
   const [fetchPreviewHint, setFetchPreviewHint] = useState(null);
+  const [duplicateExisting, setDuplicateExisting] = useState(null);
 
   const refreshSavedCategories = useCallback(() => {
     getBookmarkCategories().then(setSavedCategoryIds).catch(() => {});
@@ -35,7 +42,28 @@ export default function AddBookmark() {
 
   useEffect(() => {
     setFetchPreviewHint(null);
+    setDuplicateExisting(null);
   }, [url]);
+
+  const handleToggleCategory = (id) => {
+    setSelectedCategories((prev) => {
+      const set = new Set(prev);
+      if (set.has(id)) {
+        if (set.size <= 1) return prev;
+        set.delete(id);
+      } else {
+        set.add(id);
+      }
+      return [...set];
+    });
+  };
+
+  const handleAddCustomCategory = () => {
+    const t = customCategoryDraft.trim().slice(0, 80);
+    if (!t) return;
+    setSelectedCategories((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    setCustomCategoryDraft('');
+  };
 
   const handleFetchFromPage = async () => {
     if (!url.trim()) {
@@ -87,26 +115,36 @@ export default function AddBookmark() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError(null);
+    setDuplicateExisting(null);
     setSaving(true);
-    const cat = effectiveCategoryId(category, categoryCustom);
     try {
+      const cats = selectedCategories.map((c) => String(c).trim()).filter((c) => c.length > 0);
+      const categoriesPayload = cats.length > 0 ? cats : ['general'];
       const row = await createBookmark({
         url,
         label: label.trim() || undefined,
         notes: notes.trim() || undefined,
-        category: cat,
+        categories: categoriesPayload,
+        category: categoriesPayload[0],
         image_url: imageUrl.trim() || undefined,
       });
       setSuccessRow(row);
       setUrl('');
       setLabel('');
       setNotes('');
-      setCategory('general');
-      setCategoryCustom('');
+      setSelectedCategories(['general']);
+      setCustomCategoryDraft('');
       setImageUrl('');
+      setDuplicateExisting(null);
       refreshSavedCategories();
     } catch (err) {
-      setFormError(err.message || 'Could not save bookmark.');
+      if (err && err.code === BOOKMARK_URL_DUPLICATE_CODE && err.existing) {
+        setDuplicateExisting(err.existing);
+        setFormError(null);
+      } else {
+        setDuplicateExisting(null);
+        setFormError(err.message || 'Could not save bookmark.');
+      }
     } finally {
       setSaving(false);
     }
@@ -157,10 +195,11 @@ export default function AddBookmark() {
           setLabel={setLabel}
           notes={notes}
           setNotes={setNotes}
-          category={category}
-          setCategory={setCategory}
-          categoryCustom={categoryCustom}
-          setCategoryCustom={setCategoryCustom}
+          selectedCategories={selectedCategories}
+          onToggleCategory={handleToggleCategory}
+          customCategoryDraft={customCategoryDraft}
+          setCustomCategoryDraft={setCustomCategoryDraft}
+          onAddCustomCategory={handleAddCustomCategory}
           imageUrl={imageUrl}
           setImageUrl={setImageUrl}
           disabled={saving}
@@ -173,6 +212,58 @@ export default function AddBookmark() {
           <p className="form-add-bookmark__error" role="alert">
             {formError}
           </p>
+        ) : null}
+        {duplicateExisting ? (
+          <div className="form-add-bookmark__duplicate" role="region" aria-labelledby="add-bookmark-duplicate-heading">
+            <h3 id="add-bookmark-duplicate-heading" className="form-add-bookmark__duplicate-heading">
+              This link is already saved
+            </h3>
+            <p className="form-add-bookmark__duplicate-intro">
+              You cannot add the same URL twice. To show it under more categories or change details, open Bookmarks and
+              use <strong>Edit</strong> on the card below.
+            </p>
+            <div className="form-add-bookmark__duplicate-card">
+              {duplicateExisting.image_url?.trim() ? (
+                <div
+                  className="form-add-bookmark__duplicate-thumb"
+                  style={{ backgroundImage: `url(${duplicateExisting.image_url})` }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <div
+                  className="form-add-bookmark__duplicate-thumb form-add-bookmark__duplicate-thumb--placeholder"
+                  aria-hidden="true"
+                />
+              )}
+              <div className="form-add-bookmark__duplicate-body">
+                <span className="form-add-bookmark__duplicate-title">
+                  {duplicateExisting.label?.trim() || bookmarkSnippetHost(duplicateExisting.url)}
+                </span>
+                <a
+                  href={duplicateExisting.url}
+                  className="form-add-bookmark__duplicate-url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {duplicateExisting.url}
+                </a>
+                <p className="form-add-bookmark__duplicate-cats">
+                  Categories:{' '}
+                  {bookmarkCategoriesList(duplicateExisting)
+                    .map((id) => bookmarkCategoryLabel(id))
+                    .join(', ')}
+                </p>
+              </div>
+            </div>
+            <div className="form-add-bookmark__duplicate-actions">
+              <Link
+                to={`/bookmarks?q=${encodeURIComponent(duplicateExisting.url)}`}
+                className="btn primary form-add-bookmark__duplicate-cta"
+              >
+                Find it in Bookmarks
+              </Link>
+            </div>
+          </div>
         ) : null}
         <button type="submit" className="btn primary form-add-bookmark__submit" disabled={saving}>
           {saving ? 'Saving…' : 'Add bookmark'}

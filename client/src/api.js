@@ -1,5 +1,22 @@
 /** API base and fetch helpers — single place for all /api calls */
+import { bookmarkCategoriesList } from './constants.js';
+
 export const API = import.meta.env.VITE_API_URL || '/api';
+
+/** Server returns this `code` with HTTP 409 when a bookmark URL already exists. */
+export const BOOKMARK_URL_DUPLICATE_CODE = 'BOOKMARK_URL_DUPLICATE';
+
+function throwBookmarkConflictIfPresent(r, data, text) {
+  if (r.status === 409 && data && data.code === BOOKMARK_URL_DUPLICATE_CODE) {
+    const e = new Error(
+      data.error ||
+        'This URL is already saved. Edit the existing bookmark on the Bookmarks page to add or change categories.',
+    );
+    e.code = data.code;
+    e.existing = data.existing;
+    throw e;
+  }
+}
 
 const ADMIN_REQUEST_TIMEOUT_MS = 20_000;
 
@@ -226,9 +243,7 @@ async function uniqueCategoriesFromBookmarks() {
   const bookmarks = await getBookmarks();
   const set = new Set();
   for (const b of bookmarks) {
-    const raw = b.category ?? b.Category;
-    const c = raw != null ? String(raw).trim() : '';
-    if (c) set.add(c);
+    bookmarkCategoriesList(b).forEach((c) => set.add(c));
   }
   return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
@@ -333,6 +348,7 @@ export async function createBookmark(body) {
     }
   }
   if (!r.ok) {
+    throwBookmarkConflictIfPresent(r, data, text);
     throw new Error((data && data.error) || text.trim().slice(0, 200) || `Request failed (${r.status})`);
   }
   if (data == null || typeof data !== 'object' || data.id == null) {
@@ -347,8 +363,22 @@ export async function updateBookmark(id, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || r.statusText);
+  const text = await r.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(
+      !r.ok ? text.trim().slice(0, 200) || `Request failed (${r.status})` : 'Invalid JSON from server.',
+    );
+  }
+  if (!r.ok) {
+    throwBookmarkConflictIfPresent(r, data, text);
+    throw new Error((data && data.error) || text.trim().slice(0, 200) || `Request failed (${r.status})`);
+  }
+  if (data == null || typeof data !== 'object' || data.id == null) {
+    throw new Error('Server returned an unexpected response after updating the bookmark.');
+  }
   return data;
 }
 

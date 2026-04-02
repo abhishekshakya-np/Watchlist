@@ -1,32 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { updateBookmark, getBookmarkCategories, fetchBookmarkLinkPreview } from '../api.js';
 import BookmarkFormFields from './BookmarkFormFields.jsx';
-import { BOOKMARK_CATEGORY_PRESETS } from '../constants.js';
-
-const PRESET_IDS = new Set(BOOKMARK_CATEGORY_PRESETS.map((p) => p.id));
-
-function effectiveCategoryId(category, categoryCustom) {
-  if (category === 'custom') {
-    const t = categoryCustom.trim();
-    return t || 'general';
-  }
-  return category || 'general';
-}
+import { bookmarkCategoriesList } from '../constants.js';
 
 export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
-  const storedCat = bookmark.category?.trim() || 'general';
   const [savedCategoryIds, setSavedCategoryIds] = useState([]);
 
   const [editUrl, setEditUrl] = useState(bookmark.url);
   const [editLabel, setEditLabel] = useState(bookmark.label ?? '');
   const [editNotes, setEditNotes] = useState(bookmark.notes ?? '');
-  const [editCategory, setEditCategory] = useState(() => (PRESET_IDS.has(storedCat) ? storedCat : 'custom'));
-  const [editCategoryCustom, setEditCategoryCustom] = useState(() => (PRESET_IDS.has(storedCat) ? '' : storedCat));
+  const [selectedCategories, setSelectedCategories] = useState(() => bookmarkCategoriesList(bookmark));
+  const [customCategoryDraft, setCustomCategoryDraft] = useState('');
   const [editImageUrl, setEditImageUrl] = useState(bookmark.image_url ?? '');
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [fetchPreviewPending, setFetchPreviewPending] = useState(false);
   const [fetchPreviewHint, setFetchPreviewHint] = useState(null);
+
+  const selectedCategoriesRef = useRef(selectedCategories);
+  useEffect(() => {
+    selectedCategoriesRef.current = selectedCategories;
+  }, [selectedCategories]);
 
   useEffect(() => {
     getBookmarkCategories().then(setSavedCategoryIds).catch(() => {});
@@ -36,18 +30,25 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
     setFetchPreviewHint(null);
   }, [editUrl]);
 
-  useEffect(() => {
-    if (savedCategoryIds.length === 0) return;
-    if (PRESET_IDS.has(storedCat)) return;
-    if (
-      savedCategoryIds.includes(storedCat) &&
-      editCategory === 'custom' &&
-      editCategoryCustom === storedCat
-    ) {
-      setEditCategory(storedCat);
-      setEditCategoryCustom('');
-    }
-  }, [savedCategoryIds, storedCat, editCategory, editCategoryCustom]);
+  const handleToggleCategory = (id) => {
+    setSelectedCategories((prev) => {
+      const set = new Set(prev);
+      if (set.has(id)) {
+        if (set.size <= 1) return prev;
+        set.delete(id);
+      } else {
+        set.add(id);
+      }
+      return [...set];
+    });
+  };
+
+  const handleAddCustomCategory = () => {
+    const t = customCategoryDraft.trim().slice(0, 80);
+    if (!t) return;
+    setSelectedCategories((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    setCustomCategoryDraft('');
+  };
 
   const handleFetchFromPage = async () => {
     if (!editUrl.trim()) {
@@ -100,12 +101,17 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
     e.preventDefault();
     setEditError(null);
     setEditSaving(true);
-    const cat = effectiveCategoryId(editCategory, editCategoryCustom);
-    updateBookmark(bookmark.id, {
+    const cats = (selectedCategoriesRef.current || [])
+      .map((c) => String(c).trim())
+      .filter((c) => c.length > 0);
+    const categoriesPayload = cats.length > 0 ? cats : ['general'];
+    const categoryPrimary = categoriesPayload[0];
+    updateBookmark(Number(bookmark.id), {
       url: editUrl,
       label: editLabel.trim() || null,
       notes: editNotes.trim() || null,
-      category: cat,
+      categories: categoriesPayload,
+      category: categoryPrimary,
       image_url: editImageUrl.trim() || null,
     })
       .then((row) => {
@@ -125,14 +131,14 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
         aria-modal="true"
         aria-labelledby="bookmark-edit-modal-title"
       >
-        <div className="modal-header">
+        <div className="modal-header bookmark-edit-modal__header">
           <h3 id="bookmark-edit-modal-title">Edit bookmark</h3>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
-        <div className="modal-body">
-          <form className="bookmarks-form" onSubmit={handleSave}>
+        <form className="bookmark-edit-modal__form bookmarks-form" onSubmit={handleSave}>
+          <div className="bookmark-edit-modal__scroll">
             <BookmarkFormFields
               idPrefix="modal-edit-"
               url={editUrl}
@@ -141,10 +147,11 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
               setLabel={setEditLabel}
               notes={editNotes}
               setNotes={setEditNotes}
-              category={editCategory}
-              setCategory={setEditCategory}
-              categoryCustom={editCategoryCustom}
-              setCategoryCustom={setEditCategoryCustom}
+              selectedCategories={selectedCategories}
+              onToggleCategory={handleToggleCategory}
+              customCategoryDraft={customCategoryDraft}
+              setCustomCategoryDraft={setCustomCategoryDraft}
+              onAddCustomCategory={handleAddCustomCategory}
               imageUrl={editImageUrl}
               setImageUrl={setEditImageUrl}
               disabled={editSaving}
@@ -158,6 +165,8 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
                 {editError}
               </p>
             ) : null}
+          </div>
+          <div className="bookmark-edit-modal__footer">
             <div className="bookmark-edit-modal__actions">
               <button type="submit" className="btn primary" disabled={editSaving}>
                 {editSaving ? 'Saving…' : 'Save changes'}
@@ -166,8 +175,8 @@ export default function BookmarkEditModal({ bookmark, onClose, onSaved }) {
                 Cancel
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

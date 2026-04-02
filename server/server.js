@@ -93,6 +93,7 @@ async function restoreBackup(backup) {
       }
     }
   });
+  await backfillNullBookmarkCategories();
 }
 
 async function mergeBackup(backup) {
@@ -152,15 +153,21 @@ async function mergeBackup(backup) {
         if (exists) continue;
         const label = row.label != null && String(row.label).trim() !== '' ? String(row.label).trim() : null;
         const notes = row.notes != null && String(row.notes).trim() !== '' ? String(row.notes).trim() : null;
-        const category = row.category != null && String(row.category).trim() !== '' ? sanitizeBookmarkCategory(row.category) : 'general';
+        const { json: catJson, primary: catPrimary } = sanitizeBookmarkCategoriesInput({
+          category: row.category,
+          categories: row.categories,
+        });
         const imageUrl = normalizeOptionalImageUrlOrNull(row.image_url);
         if (isPg) {
           await tx.run(
-            'INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES ($1, $2, $3, $4, $5)',
-            [href, label, notes, category, imageUrl],
+            'INSERT INTO bookmarks (url, label, notes, category, categories, image_url) VALUES ($1, $2, $3, $4, $5, $6)',
+            [href, label, notes, catPrimary, catJson, imageUrl],
           );
         } else {
-          await tx.run('INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES (?, ?, ?, ?, ?)', [href, label, notes, category, imageUrl]);
+          await tx.run(
+            'INSERT INTO bookmarks (url, label, notes, category, categories, image_url) VALUES (?, ?, ?, ?, ?, ?)',
+            [href, label, notes, catPrimary, catJson, imageUrl],
+          );
         }
       }
     }
@@ -303,6 +310,108 @@ function sanitizeBookmarkCategory(raw) {
   let s = String(raw ?? 'general').trim().slice(0, 80);
   if (!s) s = 'general';
   return s.replace(/[\x00-\x1f\x7f]/g, '');
+}
+
+const MAX_BOOKMARK_CATEGORIES = 24;
+
+/** Normalizes bookmark.categories from request body; supports legacy single `category`. */
+function sanitizeBookmarkCategoriesInput(body) {
+  let arr = body?.categories;
+  if (typeof arr === 'string') {
+    try {
+      const parsed = JSON.parse(arr.trim());
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch {
+      arr = undefined;
+    }
+  }
+  if (!Array.isArray(arr)) {
+    if (body?.category != null && String(body.category).trim() !== '') {
+      arr = [body.category];
+    } else {
+      arr = ['general'];
+    }
+  }
+  const out = [];
+  const seen = new Set();
+  for (const raw of arr) {
+    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) continue;
+    const s = sanitizeBookmarkCategory(raw);
+    if (!seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+    if (out.length >= MAX_BOOKMARK_CATEGORIES) break;
+  }
+  if (out.length === 0) out.push('general');
+  return { list: out, json: JSON.stringify(out), primary: out[0] };
+}
+
+function parseBookmarkCategoriesFromRow(row) {
+  const raw = row?.categories;
+
+  if (Array.isArray(raw)) {
+    const out = [];
+    const seen = new Set();
+    for (const x of raw) {
+      const s = sanitizeBookmarkCategory(x);
+      if (!seen.has(s)) {
+        seen.add(s);
+        out.push(s);
+      }
+    }
+    if (out.length > 0) return out;
+  }
+
+  try {
+    if (raw != null && String(raw).trim() !== '' && String(raw).trim() !== 'null') {
+      const j = JSON.parse(String(raw));
+      if (Array.isArray(j)) {
+        const out = [];
+        const seen = new Set();
+        for (const x of j) {
+          const s = sanitizeBookmarkCategory(x);
+          if (!seen.has(s)) {
+            seen.add(s);
+            out.push(s);
+          }
+        }
+        if (out.length > 0) return out;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return [sanitizeBookmarkCategory(row?.category)];
+}
+
+function bookmarkRowToClient(row) {
+  if (!row) return null;
+  const cats = parseBookmarkCategoriesFromRow(row);
+  return {
+    id: Number(row.id),
+    url: row.url,
+    label: row.label ?? null,
+    notes: row.notes ?? null,
+    categories: cats,
+    category: cats[0],
+    image_url: row.image_url ?? null,
+    created_at: row.created_at != null ? String(row.created_at) : null,
+  };
+}
+
+/** After restore or legacy rows: ensure `categories` JSON exists for filtering. */
+async function backfillNullBookmarkCategories() {
+  const rows = await db.query(
+    `SELECT id, category, categories FROM bookmarks
+     WHERE categories IS NULL OR TRIM(categories) = '' OR categories = 'null'`,
+  );
+  for (const row of rows) {
+    const c = (row.category && String(row.category).trim()) || 'general';
+    const safe = sanitizeBookmarkCategory(c);
+    const json = JSON.stringify([safe]);
+    await db.run('UPDATE bookmarks SET categories = ?, category = ? WHERE id = ?', [json, safe, row.id]);
+  }
 }
 
 const MAX_BOOKMARK_IMAGE_DATA_URL = 2_000_000; // ~2MB string cap for data: URLs in DB
@@ -838,9 +947,29 @@ app.post('/api/bookmarks/link-preview', requireAdmin, async (req, res) => {
 
 app.get('/api/bookmarks/categories', async (req, res) => {
   try {
-    const rows = await db.query(
-      `SELECT DISTINCT TRIM(category) AS cat FROM bookmarks WHERE TRIM(COALESCE(category, '')) != '' ORDER BY cat`,
-    );
+    let rows;
+    if (db.isPg()) {
+      rows = await db.query(`
+        SELECT DISTINCT trim(b) AS cat
+        FROM bookmarks,
+        LATERAL jsonb_array_elements_text(
+          CASE
+            WHEN categories IS NULL OR trim(categories) = '' THEN '[]'::jsonb
+            ELSE categories::jsonb
+          END
+        ) AS b
+        WHERE trim(b) != ''
+        ORDER BY cat
+      `);
+    } else {
+      rows = await db.query(`
+        SELECT DISTINCT trim(cast(json_each.value AS text)) AS cat
+        FROM bookmarks, json_each(bookmarks.categories)
+        WHERE bookmarks.categories IS NOT NULL AND trim(bookmarks.categories) != ''
+          AND json_valid(bookmarks.categories)
+        ORDER BY cat
+      `);
+    }
     const categories = rows
       .map((r) => {
         if (r == null || typeof r !== 'object') return null;
@@ -856,52 +985,58 @@ app.get('/api/bookmarks/categories', async (req, res) => {
 });
 app.get('/api/bookmarks', async (req, res) => {
   try {
-    let sql = 'SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE 1=1';
+    let sql = 'SELECT id, url, label, notes, category, categories, image_url, created_at FROM bookmarks WHERE 1=1';
     const params = [];
     const cat = req.query.category != null ? String(req.query.category).trim() : '';
     if (cat) {
-      sql += ' AND category = ?';
-      params.push(cat);
+      if (db.isPg()) {
+        sql += ' AND categories::jsonb @> ?::jsonb';
+        params.push(JSON.stringify([cat]));
+      } else {
+        sql +=
+          ' AND EXISTS (SELECT 1 FROM json_each(bookmarks.categories) WHERE json_each.value = ?)';
+        params.push(cat);
+      }
     }
     const q = req.query.q != null ? String(req.query.q).trim() : '';
     if (q) {
       const term = `%${q}%`;
-      sql += ' AND (COALESCE(label,\'\') LIKE ? OR url LIKE ? OR COALESCE(notes,\'\') LIKE ?)';
-      params.push(term, term, term);
+      sql += ' AND (COALESCE(label,\'\') LIKE ? OR url LIKE ? OR COALESCE(notes,\'\') LIKE ? OR COALESCE(categories,\'\') LIKE ?)';
+      params.push(term, term, term, term);
     }
     sql += ' ORDER BY id DESC';
     const rows = await db.query(sql, params);
-    res.json(rows);
+    res.json(rows.map((row) => bookmarkRowToClient(row)));
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/bookmarks', requireAdmin, async (req, res) => {
   try {
     const url = normalizeBookmarkUrl(req.body?.url);
+    const dup = await db.queryOne('SELECT * FROM bookmarks WHERE url = ?', [url]);
+    if (dup) {
+      return res.status(409).json({
+        code: 'BOOKMARK_URL_DUPLICATE',
+        error:
+          'This URL is already saved. Open Bookmarks, find this link, and use Edit to add or change categories instead of adding it again.',
+        existing: bookmarkRowToClient(dup),
+      });
+    }
     const label = req.body.label != null && String(req.body.label).trim() !== '' ? String(req.body.label).trim() : null;
     const notes = req.body.notes != null && String(req.body.notes).trim() !== '' ? String(req.body.notes).trim() : null;
-    const category = sanitizeBookmarkCategory(req.body.category);
+    const { json: catJson, primary: catPrimary } = sanitizeBookmarkCategoriesInput(req.body);
     const imageUrl = normalizeOptionalImageUrl(req.body.image_url);
     const id = await db.insertReturningId(
-      'INSERT INTO bookmarks (url, label, notes, category, image_url) VALUES (?, ?, ?, ?, ?)',
-      [url, label, notes, category, imageUrl],
+      'INSERT INTO bookmarks (url, label, notes, category, categories, image_url) VALUES (?, ?, ?, ?, ?, ?)',
+      [url, label, notes, catPrimary, catJson, imageUrl],
     );
     if (id == null) {
       return res.status(500).json({ error: 'Could not create bookmark (no row id from database).' });
     }
-    const row = await db.queryOne('SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
+    const row = await db.queryOne('SELECT id, url, label, notes, category, categories, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
     if (!row) {
       return res.status(500).json({ error: 'Bookmark insert did not return a readable row.' });
     }
-    const payload = {
-      id: Number(row.id),
-      url: row.url,
-      label: row.label ?? null,
-      notes: row.notes ?? null,
-      category: row.category ?? 'general',
-      image_url: row.image_url ?? null,
-      created_at: row.created_at != null ? String(row.created_at) : null,
-    };
-    return res.status(201).json(payload);
+    return res.status(201).json(bookmarkRowToClient(row));
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
@@ -915,6 +1050,14 @@ app.patch('/api/bookmarks/:id', requireAdmin, async (req, res) => {
     let url = existing.url;
     if (req.body.url !== undefined) {
       url = normalizeBookmarkUrl(req.body.url);
+      const dup = await db.queryOne('SELECT * FROM bookmarks WHERE url = ? AND id != ?', [url, id]);
+      if (dup) {
+        return res.status(409).json({
+          code: 'BOOKMARK_URL_DUPLICATE',
+          error: 'Another bookmark already uses this URL. Use a different link or edit the existing bookmark.',
+          existing: bookmarkRowToClient(dup),
+        });
+      }
     }
     const label = req.body.label !== undefined
       ? (req.body.label == null || String(req.body.label).trim() === '' ? null : String(req.body.label).trim())
@@ -922,14 +1065,23 @@ app.patch('/api/bookmarks/:id', requireAdmin, async (req, res) => {
     const notes = req.body.notes !== undefined
       ? (req.body.notes == null || String(req.body.notes).trim() === '' ? null : String(req.body.notes).trim())
       : existing.notes;
-    const category = req.body.category !== undefined ? sanitizeBookmarkCategory(req.body.category) : existing.category;
+    let catPrimary = existing.category;
+    let catJson = existing.categories;
+    if (req.body.categories !== undefined || req.body.category !== undefined) {
+      const next = sanitizeBookmarkCategoriesInput(req.body);
+      catPrimary = next.primary;
+      catJson = next.json;
+    }
     let imageUrl = existing.image_url ?? null;
     if (req.body.image_url !== undefined) {
       imageUrl = normalizeOptionalImageUrl(req.body.image_url);
     }
-    await db.run('UPDATE bookmarks SET url = ?, label = ?, notes = ?, category = ?, image_url = ? WHERE id = ?', [url, label, notes, category, imageUrl, id]);
-    const row = await db.queryOne('SELECT id, url, label, notes, category, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
-    res.json(row);
+    await db.run(
+      'UPDATE bookmarks SET url = ?, label = ?, notes = ?, category = ?, categories = ?, image_url = ? WHERE id = ?',
+      [url, label, notes, catPrimary, catJson, imageUrl, id],
+    );
+    const row = await db.queryOne('SELECT id, url, label, notes, category, categories, image_url, created_at FROM bookmarks WHERE id = ?', [id]);
+    res.json(bookmarkRowToClient(row));
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.delete('/api/bookmarks/:id', requireAdmin, async (req, res) => {

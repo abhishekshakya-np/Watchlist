@@ -4,12 +4,14 @@ import { getBookmarks, deleteBookmark } from '../api.js';
 import { useAdminAuth } from '../context/AdminAuthContext.jsx';
 import {
   BOOKMARK_CATEGORY_PRESETS,
+  bookmarkCategoriesList,
   bookmarkCategoryLabel,
 } from '../constants.js';
 import EmptyState from '../components/EmptyState.jsx';
 import BookmarkDirectoryCard from '../components/BookmarkDirectoryCard.jsx';
 import BookmarkFilterBar from '../components/BookmarkFilterBar.jsx';
 import BookmarkEditModal from '../components/BookmarkEditModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 const PRESET_IDS = new Set(BOOKMARK_CATEGORY_PRESETS.map((p) => p.id));
 
@@ -51,6 +53,8 @@ export default function Bookmarks() {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState(null);
   const [editingBookmark, setEditingBookmark] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const load = useCallback(() => {
     setListError(null);
@@ -80,7 +84,9 @@ export default function Bookmarks() {
     BOOKMARK_CATEGORY_PRESETS.forEach((p) => opts.push({ value: p.id, label: p.label }));
     const seen = new Set(opts.map((o) => o.value));
     const fromItems = new Set();
-    items.forEach((b) => fromItems.add(b.category?.trim() || 'general'));
+    items.forEach((b) => {
+      bookmarkCategoriesList(b).forEach((id) => fromItems.add(id));
+    });
     const extras = [...fromItems].filter((id) => !seen.has(id)).sort();
     extras.forEach((id) => opts.push({ value: id, label: bookmarkCategoryLabel(id) }));
     return opts;
@@ -89,7 +95,7 @@ export default function Bookmarks() {
   const filteredSorted = useMemo(() => {
     let list = items;
     if (category) {
-      list = list.filter((b) => (b.category?.trim() || 'general') === category);
+      list = list.filter((b) => bookmarkCategoriesList(b).includes(category));
     }
     const qt = q.trim().toLowerCase();
     if (qt) {
@@ -97,8 +103,10 @@ export default function Bookmarks() {
         const title = (b.label || '').toLowerCase();
         const u = (b.url || '').toLowerCase();
         const n = (b.notes || '').toLowerCase();
-        const cat = (b.category || '').toLowerCase();
-        return title.includes(qt) || u.includes(qt) || n.includes(qt) || cat.includes(qt);
+        const cats = bookmarkCategoriesList(b)
+          .join(' ')
+          .toLowerCase();
+        return title.includes(qt) || u.includes(qt) || n.includes(qt) || cats.includes(qt);
       });
     }
     return sortBookmarks(list, sort);
@@ -107,9 +115,10 @@ export default function Bookmarks() {
   const bookmarkSections = useMemo(() => {
     const by = {};
     for (const b of filteredSorted) {
-      const k = b.category?.trim() || 'general';
-      if (!by[k]) by[k] = [];
-      by[k].push(b);
+      for (const k of bookmarkCategoriesList(b)) {
+        if (!by[k]) by[k] = [];
+        by[k].push(b);
+      }
     }
     const keys = [];
     for (const p of BOOKMARK_CATEGORY_PRESETS) {
@@ -128,15 +137,42 @@ export default function Bookmarks() {
 
   const totalFilteredCount = filteredSorted.length;
 
-  const handleDelete = (id) => {
-    if (!window.confirm('Remove this bookmark?')) return;
+  const deleteTargetBookmark = useMemo(() => {
+    if (deleteTargetId == null) return null;
+    return items.find((b) => Number(b.id) === Number(deleteTargetId)) ?? null;
+  }, [deleteTargetId, items]);
+
+  const handleDeleteRequest = (id) => {
+    setDeleteTargetId(id);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleteSubmitting) return;
+    setDeleteTargetId(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteTargetId == null || deleteSubmitting) return;
+    setDeleteSubmitting(true);
+    const id = deleteTargetId;
     deleteBookmark(id)
-      .then(() => setItems((prev) => prev.filter((b) => b.id !== id)))
-      .catch(() => {});
+      .then(() => {
+        setItems((prev) => prev.filter((b) => Number(b.id) !== Number(id)));
+        setDeleteTargetId(null);
+      })
+      .catch(() => {})
+      .finally(() => setDeleteSubmitting(false));
   };
 
   const handleSavedEdit = (row) => {
-    setItems((prev) => prev.map((b) => (b.id === row.id ? row : b)));
+    const id = Number(row.id);
+    setItems((prev) => prev.map((b) => (Number(b.id) === id ? row : b)));
+    const catFilter = searchParams.get('category') || '';
+    if (catFilter && !bookmarkCategoriesList(row).includes(catFilter)) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('category');
+      setSearchParams(next, { replace: true });
+    }
   };
 
   if (loading) {
@@ -222,7 +258,7 @@ export default function Bookmarks() {
                       <BookmarkDirectoryCard
                         bookmark={b}
                         onEdit={setEditingBookmark}
-                        onDelete={handleDelete}
+                        onDelete={handleDeleteRequest}
                         canManage={canMutate}
                       />
                     </li>
@@ -242,6 +278,22 @@ export default function Bookmarks() {
           onSaved={handleSavedEdit}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={deleteTargetId != null}
+        title="Remove bookmark?"
+        description={
+          deleteTargetBookmark
+            ? `Remove “${bookmarkDisplayTitle(deleteTargetBookmark)}” from your bookmarks? This cannot be undone.`
+            : 'Remove this bookmark? This cannot be undone.'
+        }
+        confirmLabel={deleteSubmitting ? 'Removing…' : 'Remove'}
+        cancelLabel="Cancel"
+        danger
+        confirmDisabled={deleteSubmitting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 }

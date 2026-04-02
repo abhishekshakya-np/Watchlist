@@ -812,6 +812,18 @@
   margin-top: var(--space-lg);
 }
 
+.app-layout--home .page-shell--add .page-shell__intro {
+  max-width: none;
+}
+
+.app-layout--home .page-shell--add .success-block {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+}
+
 .app-layout--home .search-input {
   min-height: 44px;
 }

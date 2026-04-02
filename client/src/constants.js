@@ -37,6 +37,15 @@ export function bookmarkCategoryLabel(id) {
   return key.replace(/_/g, ' ');
 }
 
+/** Normalized list of category ids for a bookmark (API returns `categories` array; legacy `category` string). */
+export function bookmarkCategoriesList(bookmark) {
+  if (bookmark?.categories != null && Array.isArray(bookmark.categories) && bookmark.categories.length > 0) {
+    return [...new Set(bookmark.categories.map((c) => String(c).trim()).filter(Boolean))];
+  }
+  const c = bookmark?.category != null ? String(bookmark.category).trim() : '';
+  return c ? [c] : ['general'];
+}
+
 /** Bookmarks page filter bar — same UX as Browse “Sort” */
 export const BOOKMARK_SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
@@ -88,6 +97,37 @@ export const STATUS_OPTIONS = [
   { value: 'paused', label: 'Paused' },
   { value: 'dropped', label: 'Dropped' },
 ];
+
+/** Personal list rating (stored in user_list.score) — not the same as TMDB-style title averages */
+export const LIST_SCORE_OPTIONS = [
+  { value: '1', label: '1 — Bad' },
+  { value: '2', label: '2 — Good' },
+  { value: '3', label: '3 — Best' },
+  { value: '4', label: '4 — Masterpiece' },
+];
+
+export const LIST_SCORE_LABELS = {
+  1: 'Bad',
+  2: 'Good',
+  3: 'Best',
+  4: 'Masterpiece',
+};
+
+export function formatListScore(score) {
+  if (score === '' || score == null) return '';
+  const n = Number(score);
+  if (!Number.isInteger(n) || n < 1 || n > 4) return '';
+  return LIST_SCORE_LABELS[n] ?? '';
+}
+
+/** Placeholder for list progress field on title detail — wording matches media type */
+export function listProgressPlaceholder(mediaType) {
+  if (mediaType === 'series') return 'e.g. Ep 5 of 12';
+  if (mediaType === 'movie') return 'e.g. 45 min in, or notes';
+  if (mediaType === 'game') return 'e.g. Act 2, 10 h played';
+  if (mediaType === 'book') return 'e.g. Ch. 8, p. 142';
+  return 'e.g. episode, chapter, page, or playtime';
+}
 
 export const STATUS_LABELS = {
   planning: 'Planning',
