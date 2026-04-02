@@ -93,13 +93,6 @@ export default function ListScoreWidget({
                 <dt>Your rating</dt>
                 <dd>{formatListScore(entry.score)}</dd>
               </div>
-            ) : entry?.score != null && entry.score !== '' ? (
-              <div className="list-score-widget__readonly-row">
-                <dt>Your rating</dt>
-                <dd>
-                  Older rating saved as <strong>{entry.score}</strong>. An admin can update it to 1–4.
-                </dd>
-              </div>
             ) : null}
             {entry.progress ? (
               <div className="list-score-widget__readonly-row">

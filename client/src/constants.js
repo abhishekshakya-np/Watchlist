@@ -82,6 +82,15 @@ export const SORT_OPTIONS = [
 
 export const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Book' };
 
+/** Placeholder for list progress field on title detail — wording matches media type */
+export function listProgressPlaceholder(mediaType) {
+  if (mediaType === 'series') return 'e.g. Ep 5 of 12';
+  if (mediaType === 'movie') return 'e.g. 45 min in, or notes';
+  if (mediaType === 'game') return 'e.g. Act 2, 10 h played';
+  if (mediaType === 'book') return 'e.g. Ch. 8, p. 142';
+  return 'e.g. episode, chapter, page, or playtime';
+}
+
 export const RELATION_TYPES = [
   { value: 'season', label: 'Season' },
   { value: 'part', label: 'Part' },
@@ -113,20 +122,13 @@ export const LIST_SCORE_LABELS = {
   4: 'Masterpiece',
 };
 
+/** Short label for lists; legacy values outside 1–4 show as “Old scale: n”. */
 export function formatListScore(score) {
-  if (score === '' || score == null) return '';
+  if (score == null || score === '') return null;
   const n = Number(score);
-  if (!Number.isInteger(n) || n < 1 || n > 4) return '';
-  return LIST_SCORE_LABELS[n] ?? '';
-}
-
-/** Placeholder for list progress field on title detail — wording matches media type */
-export function listProgressPlaceholder(mediaType) {
-  if (mediaType === 'series') return 'e.g. Ep 5 of 12';
-  if (mediaType === 'movie') return 'e.g. 45 min in, or notes';
-  if (mediaType === 'game') return 'e.g. Act 2, 10 h played';
-  if (mediaType === 'book') return 'e.g. Ch. 8, p. 142';
-  return 'e.g. episode, chapter, page, or playtime';
+  if (!Number.isInteger(n)) return null;
+  if (n >= 1 && n <= 4) return LIST_SCORE_LABELS[n] ?? String(n);
+  return `Old scale: ${n}`;
 }
 
 export const STATUS_LABELS = {
