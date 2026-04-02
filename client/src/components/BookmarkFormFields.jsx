@@ -11,10 +11,11 @@ export default function BookmarkFormFields({
   setLabel,
   notes,
   setNotes,
-  category,
-  setCategory,
-  categoryCustom,
-  setCategoryCustom,
+  selectedCategories,
+  onToggleCategory,
+  customCategoryDraft,
+  setCustomCategoryDraft,
+  onAddCustomCategory,
   imageUrl,
   setImageUrl,
   disabled = false,
@@ -25,19 +26,25 @@ export default function BookmarkFormFields({
 }) {
   const extraCategoryIds = useMemo(() => {
     const seen = new Set(PRESET_IDS);
-    return [...new Set(savedCategoryIds.map((id) => String(id).trim()).filter(Boolean))]
-      .filter((id) => !seen.has(id))
-      .sort((a, b) =>
-        bookmarkCategoryLabel(a).localeCompare(bookmarkCategoryLabel(b), undefined, { sensitivity: 'base' }),
-      );
-  }, [savedCategoryIds]);
+    const fromSaved = [...new Set(savedCategoryIds.map((id) => String(id).trim()).filter(Boolean))].filter(
+      (id) => !seen.has(id),
+    );
+    const fromSelected = selectedCategories.filter((id) => !seen.has(id));
+    return [...new Set([...fromSaved, ...fromSelected])].sort((a, b) =>
+      bookmarkCategoryLabel(a).localeCompare(bookmarkCategoryLabel(b), undefined, { sensitivity: 'base' }),
+    );
+  }, [savedCategoryIds, selectedCategories]);
 
-  const selectableIds = useMemo(() => new Set([...PRESET_IDS, ...extraCategoryIds]), [extraCategoryIds]);
+  const handleAddCustom = () => {
+    onAddCustomCategory();
+  };
 
-  const isConcretePick = category !== 'custom' && selectableIds.has(category);
-  const showCustomField = !isConcretePick;
-  const selectDisplayValue = isConcretePick ? category : 'custom';
-  const customFieldValue = category === 'custom' ? categoryCustom : isConcretePick ? '' : category;
+  const handleCustomKeyDown = (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      onAddCustomCategory();
+    }
+  };
 
   return (
     <>
@@ -89,57 +96,71 @@ export default function BookmarkFormFields({
           disabled={disabled}
         />
       </div>
-      <div className="bookmarks-form__row">
-        <label htmlFor={`${idPrefix}bookmark-category`} className="bookmarks-form__label bookmark-directory__label">
-          Category
-        </label>
-        <select
-          id={`${idPrefix}bookmark-category`}
-          className="bookmarks-form__input bookmark-directory__input native-select bookmark-directory__select"
-          value={selectDisplayValue}
-          onChange={(ev) => {
-            const v = ev.target.value;
-            if (v === 'custom') {
-              setCategory('custom');
-            } else {
-              setCategory(v);
-              setCategoryCustom('');
-            }
-          }}
-          disabled={disabled}
-        >
-          {BOOKMARK_CATEGORY_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-          {extraCategoryIds.length > 0 ? (
-            <optgroup label="Saved categories">
-              {extraCategoryIds.map((id) => (
-                <option key={id} value={id}>
-                  {bookmarkCategoryLabel(id)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          <option value="custom">Custom…</option>
-        </select>
-        {showCustomField ? (
+      <fieldset className="bookmarks-form__fieldset">
+        <legend className="bookmarks-form__label bookmark-directory__label">Categories</legend>
+        <p className="bookmarks-form__hint">
+          Choose one or more — the same link can appear under several groups on the Bookmarks page.
+        </p>
+        <div className="bookmarks-form__checkbox-grid">
+          {BOOKMARK_CATEGORY_PRESETS.map((p) => {
+            const checked = selectedCategories.includes(p.id);
+            return (
+              <label key={p.id} className="bookmarks-form__check">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggleCategory(p.id)}
+                  disabled={disabled}
+                />
+                <span>{p.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        {extraCategoryIds.length > 0 ? (
+          <div className="bookmarks-form__checkbox-grid bookmarks-form__checkbox-grid--extra">
+            <span className="bookmarks-form__sublegend">Also used before</span>
+            {extraCategoryIds.map((id) => {
+              const checked = selectedCategories.includes(id);
+              return (
+                <label key={id} className="bookmarks-form__check">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleCategory(id)}
+                    disabled={disabled}
+                  />
+                  <span>{bookmarkCategoryLabel(id)}</span>
+                </label>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="bookmarks-form__add-custom">
+          <label htmlFor={`${idPrefix}bookmark-category-custom`} className="visually-hidden">
+            Add custom category
+          </label>
           <input
             id={`${idPrefix}bookmark-category-custom`}
             type="text"
-            className="bookmarks-form__input bookmark-directory__input bookmark-directory__input--mt"
-            placeholder="Your category name"
-            value={customFieldValue}
-            onChange={(ev) => {
-              setCategory('custom');
-              setCategoryCustom(ev.target.value);
-            }}
+            className="bookmarks-form__input bookmark-directory__input"
+            placeholder="Add another category (name or id)"
+            value={customCategoryDraft}
+            onChange={(ev) => setCustomCategoryDraft(ev.target.value)}
+            onKeyDown={handleCustomKeyDown}
             disabled={disabled}
-            aria-label="Custom category name"
+            maxLength={80}
           />
-        ) : null}
-      </div>
+          <button
+            type="button"
+            className="btn secondary bookmarks-form__add-custom-btn"
+            onClick={handleAddCustom}
+            disabled={disabled || !String(customCategoryDraft).trim()}
+          >
+            Add
+          </button>
+        </div>
+      </fieldset>
       <div className="bookmarks-form__row">
         <label htmlFor={`${idPrefix}bookmark-image`} className="bookmarks-form__label bookmark-directory__label">
           Image URL <span className="bookmarks-form__optional">(optional)</span>

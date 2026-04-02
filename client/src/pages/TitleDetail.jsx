@@ -11,6 +11,7 @@ import DetailHero from '../components/DetailHero.jsx';
 import DetailStatsRow from '../components/DetailStatsRow.jsx';
 import ListScoreWidget from '../components/ListScoreWidget.jsx';
 import AddRelatedModal from '../components/AddRelatedModal.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import TitleDetailMainColumn from '../components/TitleDetailMainColumn.jsx';
 
 export default function TitleDetail() {
@@ -23,6 +24,7 @@ export default function TitleDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddRelated, setShowAddRelated] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
@@ -33,9 +35,15 @@ export default function TitleDetail() {
     if (title?.id) getRelatedTitles(title.id).then(setRelated);
   };
 
-  const handleDelete = () => {
-    if (!title?.id) return;
-    if (!window.confirm(`Delete "${title.title || title.name}"? This cannot be undone.`)) return;
+  const handleDeleteTitleClick = () => setShowDeleteConfirm(true);
+
+  const handleDeleteTitleCancel = () => {
+    if (deleting) return;
+    setShowDeleteConfirm(false);
+  };
+
+  const handleDeleteTitleConfirm = () => {
+    if (!title?.id || deleting) return;
     setDeleting(true);
     setDeleteError(null);
     deleteTitle(title.id)
@@ -43,6 +51,7 @@ export default function TitleDetail() {
       .catch((e) => {
         setDeleteError(e.message);
         setDeleting(false);
+        setShowDeleteConfirm(false);
       });
   };
 
@@ -88,7 +97,7 @@ export default function TitleDetail() {
               <button type="button" className="btn secondary" onClick={() => setShowAddRelated(true)}>
                 Add related title
               </button>
-              <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
+              <button type="button" className="btn btn-danger" onClick={handleDeleteTitleClick} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Delete title'}
               </button>
               {deleteError && <p className="form-error detail-action-error">{deleteError}</p>}
@@ -100,6 +109,7 @@ export default function TitleDetail() {
             onUpdate={refreshEntry}
             canEdit={canMutate}
             mediaType={title.media_type}
+            titleLabel={title.title || title.name || ''}
           />
         </div>
       </div>
@@ -114,6 +124,18 @@ export default function TitleDetail() {
           }}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Delete title?"
+        description={`Are you sure you want to delete “${title.title || title.name}” from the shared library? This cannot be undone.`}
+        confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+        cancelLabel="Cancel"
+        danger
+        confirmDisabled={deleting}
+        onConfirm={handleDeleteTitleConfirm}
+        onCancel={handleDeleteTitleCancel}
+      />
     </div>
   );
 }

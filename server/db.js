@@ -134,7 +134,26 @@ function runSqliteSchema(db) {
   if (!bmCols.includes('image_url')) {
     db.exec('ALTER TABLE bookmarks ADD COLUMN image_url TEXT');
   }
+  if (!bmCols.includes('categories')) {
+    db.exec('ALTER TABLE bookmarks ADD COLUMN categories TEXT');
+  }
   db.exec("UPDATE bookmarks SET category = 'general' WHERE category IS NULL OR TRIM(category) = ''");
+  backfillBookmarkCategoriesSqlite(db);
+}
+
+function backfillBookmarkCategoriesSqlite(db) {
+  const rows = db
+    .prepare(
+      `SELECT id, category, categories FROM bookmarks
+       WHERE categories IS NULL OR TRIM(categories) = '' OR categories = 'null'`,
+    )
+    .all();
+  const upd = db.prepare('UPDATE bookmarks SET categories = ? WHERE id = ?');
+  for (const row of rows) {
+    const c = (row.category && String(row.category).trim()) || 'general';
+    const safe = c.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 80) || 'general';
+    upd.run(JSON.stringify([safe]), row.id);
+  }
 }
 
 async function runPgSchema() {
@@ -215,9 +234,25 @@ async function runPgSchema() {
     `).catch(() => { /* constraint may already allow remaster */ });
     await client.query(`ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'general'`).catch(() => {});
     await client.query('ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS image_url TEXT').catch(() => {});
+    await client.query('ALTER TABLE bookmarks ADD COLUMN IF NOT EXISTS categories TEXT').catch(() => {});
     await client.query("UPDATE bookmarks SET category = 'general' WHERE category IS NULL OR TRIM(category) = ''").catch(() => {});
+    await backfillBookmarkCategoriesPg(client);
   } finally {
     client.release();
+  }
+}
+
+async function backfillBookmarkCategoriesPg(client) {
+  const r = await client
+    .query(
+      `SELECT id, category FROM bookmarks
+       WHERE categories IS NULL OR TRIM(categories) = '' OR categories = 'null'`,
+    )
+    .catch(() => ({ rows: [] }));
+  for (const row of r.rows || []) {
+    const c = (row.category && String(row.category).trim()) || 'general';
+    const safe = c.replace(/[\x00-\x1f\x7f]/g, '').slice(0, 80) || 'general';
+    await client.query('UPDATE bookmarks SET categories = $1 WHERE id = $2', [JSON.stringify([safe]), row.id]);
   }
 }
 

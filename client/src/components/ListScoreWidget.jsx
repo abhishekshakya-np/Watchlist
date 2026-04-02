@@ -2,12 +2,20 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { addToList, updateListEntry, removeFromList } from '../api.js';
 import { LIST_SCORE_OPTIONS, STATUS_OPTIONS, formatListScore, listProgressPlaceholder } from '../constants.js';
+import ConfirmDialog from './ConfirmDialog.jsx';
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((o) => o.value === value)?.label || value;
 }
 
-export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = true, mediaType }) {
+export default function ListScoreWidget({
+  titleId,
+  entry,
+  onUpdate,
+  canEdit = true,
+  mediaType,
+  titleLabel = '',
+}) {
   const location = useLocation();
   const progressPlaceholder = listProgressPlaceholder(mediaType);
   const [status, setStatus] = useState(entry?.status || 'planning');
@@ -19,6 +27,12 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
   const [progress, setProgress] = useState(entry?.progress ?? '');
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (!entry) setRemoveConfirmOpen(false);
+  }, [entry]);
+
   useEffect(() => {
     setStatus(entry?.status || 'planning');
     const raw = entry?.score;
@@ -26,6 +40,7 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
     setScore(Number.isInteger(n) && n >= 1 && n <= 4 ? String(n) : '');
     setProgress(entry?.progress ?? '');
   }, [entry?.status, entry?.score, entry?.progress]);
+
   const save = async (updates) => {
     setLoading(true);
     setSaved(false);
@@ -39,13 +54,25 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
       setLoading(false);
     }
   };
+
   const handleSave = () =>
     save({ status, progress: progress || undefined, score: score === '' ? null : Number(score) });
-  const handleRemove = async () => {
+
+  const handleRemoveClick = () => setRemoveConfirmOpen(true);
+
+  const handleRemoveCancel = () => {
+    if (loading) return;
+    setRemoveConfirmOpen(false);
+  };
+
+  const handleRemoveConfirm = async () => {
     setLoading(true);
     try {
       await removeFromList(titleId);
       onUpdate?.();
+      setRemoveConfirmOpen(false);
+    } catch {
+      /* request failed; keep dialog open */
     } finally {
       setLoading(false);
     }
@@ -100,7 +127,7 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
             onChange={(e) => {
               const v = e.target.value;
               setStatus(v);
-              save({ status: v, progress: progress || undefined });
+              save({ status: v, progress: progress || undefined, score: score === '' ? null : Number(score) });
             }}
             disabled={loading}
           >
@@ -160,9 +187,24 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
               </p>
             ) : null}
           </div>
-          <button type="button" className="btn-remove" onClick={handleRemove} disabled={loading}>
+          <button type="button" className="btn-remove" onClick={handleRemoveClick} disabled={loading}>
             Remove from list
           </button>
+          <ConfirmDialog
+            open={removeConfirmOpen}
+            title="Remove from list?"
+            description={
+              titleLabel.trim()
+                ? `Remove “${titleLabel.trim()}” from your list? Your status, rating, and progress for this title will be cleared.`
+                : 'Remove this title from your list? Your status, rating, and progress will be cleared.'
+            }
+            confirmLabel={loading ? 'Removing…' : 'Remove from list'}
+            cancelLabel="Cancel"
+            danger
+            confirmDisabled={loading}
+            onConfirm={handleRemoveConfirm}
+            onCancel={handleRemoveCancel}
+          />
         </>
       ) : (
         <button type="button" className="btn primary" onClick={() => save({ status: 'planning' })} disabled={loading}>

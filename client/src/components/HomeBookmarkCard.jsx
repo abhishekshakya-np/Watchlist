@@ -1,4 +1,4 @@
-import { bookmarkCategoryLabel } from '../constants.js';
+import { bookmarkCategoriesList, bookmarkCategoryLabel } from '../constants.js';
 
 function hostFromUrl(href) {
   try {
@@ -33,8 +33,11 @@ function IconExternal() {
 export default function HomeBookmarkCard({ bookmark, className = '' }) {
   const displayTitle = bookmark.label?.trim() || hostFromUrl(bookmark.url);
   const host = hostFromUrl(bookmark.url);
-  const catKey = bookmark.category?.trim() || 'general';
-  const catDisplay = bookmarkCategoryLabel(catKey);
+  const catLabels = bookmarkCategoriesList(bookmark).map((id) => bookmarkCategoryLabel(id));
+  const catDisplay =
+    catLabels.length <= 2
+      ? catLabels.join(' · ')
+      : `${catLabels.slice(0, 2).join(' · ')} · +${catLabels.length - 2}`;
   const hasImage = Boolean(bookmark.image_url?.trim());
 
   return (

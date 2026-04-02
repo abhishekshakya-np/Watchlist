@@ -37,6 +37,15 @@ export function bookmarkCategoryLabel(id) {
   return key.replace(/_/g, ' ');
 }
 
+/** Normalized list of category ids for a bookmark (API returns `categories` array; legacy `category` string). */
+export function bookmarkCategoriesList(bookmark) {
+  if (bookmark?.categories != null && Array.isArray(bookmark.categories) && bookmark.categories.length > 0) {
+    return [...new Set(bookmark.categories.map((c) => String(c).trim()).filter(Boolean))];
+  }
+  const c = bookmark?.category != null ? String(bookmark.category).trim() : '';
+  return c ? [c] : ['general'];
+}
+
 /** Bookmarks page filter bar — same UX as Browse “Sort” */
 export const BOOKMARK_SORT_OPTIONS = [
   { value: 'newest', label: 'Newest first' },
