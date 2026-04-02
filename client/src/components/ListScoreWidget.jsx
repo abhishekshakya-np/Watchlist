@@ -150,10 +150,16 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
             onBlur={() => save({ progress: progress || undefined })}
             disabled={loading}
           />
-          <button type="button" className="btn primary btn-save-list" onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving…' : 'Save'}
-          </button>
-          {saved && <span className="list-score-saved">Saved</span>}
+          <div className="list-score-widget__save-block">
+            <button type="button" className="btn primary btn-save-list" onClick={handleSave} disabled={loading}>
+              {loading ? 'Saving…' : 'Save'}
+            </button>
+            {saved ? (
+              <p className="list-score-widget__saved-status" role="status" aria-live="polite">
+                Saved
+              </p>
+            ) : null}
+          </div>
           <button type="button" className="btn-remove" onClick={handleRemove} disabled={loading}>
             Remove from list
           </button>
