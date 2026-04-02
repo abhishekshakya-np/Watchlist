@@ -71,6 +71,13 @@
   }
 }
 
+.list-score-widget__legacy {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: calc(var(--space-lg) * -1) 0 var(--space-lg);
+  line-height: 1.5;
+}
+
 .detail-actions {
   margin-bottom: var(--space-lg);
   display: flex;

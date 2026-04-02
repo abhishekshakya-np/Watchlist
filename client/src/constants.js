@@ -89,6 +89,30 @@ export const STATUS_OPTIONS = [
   { value: 'dropped', label: 'Dropped' },
 ];
 
+/** Personal list rating (stored in user_list.score) — not the same as TMDB-style title averages */
+export const LIST_SCORE_OPTIONS = [
+  { value: '1', label: '1 — Bad' },
+  { value: '2', label: '2 — Good' },
+  { value: '3', label: '3 — Best' },
+  { value: '4', label: '4 — Masterpiece' },
+];
+
+export const LIST_SCORE_LABELS = {
+  1: 'Bad',
+  2: 'Good',
+  3: 'Best',
+  4: 'Masterpiece',
+};
+
+/** Short label for lists; legacy values outside 1–4 show as “Old scale: n”. */
+export function formatListScore(score) {
+  if (score == null || score === '') return null;
+  const n = Number(score);
+  if (!Number.isInteger(n)) return null;
+  if (n >= 1 && n <= 4) return LIST_SCORE_LABELS[n] ?? String(n);
+  return `Old scale: ${n}`;
+}
+
 export const STATUS_LABELS = {
   planning: 'Planning',
   current: 'Current',
