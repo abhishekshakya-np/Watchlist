@@ -7,10 +7,17 @@
     "start": "cd server && node server.js",
     "serve": "npm run build && npm start",
     "dev": "cross-env NODE_ENV=development node server/server.js",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "dev:api": "cross-env NODE_ENV=development DEV_API_ONLY=1 node server/server.js",
+    "dev:client": "cd client && npm install && npm run dev",
+    "dev:client:3002": "cd client && npm install && cross-env VITE_API_PROXY_PORT=3002 npm run dev",
+    "dev:split": "concurrently -k -n api,vite -c cyan,magenta \"npm run dev:api\" \"npm run dev:client\"",
+    "dev:split:3002": "concurrently -k -n api,vite -c cyan,magenta \"cross-env PORT=3002 npm run dev:api\" \"npm run dev:client:3002\"",
     "check-structure": "node scripts/check-structure.js",
     "prepare": "husky"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "husky": "^9.0.11"
   }

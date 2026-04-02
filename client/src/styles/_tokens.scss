@@ -9,6 +9,7 @@
   --accent: #7c3aed;
   --accent-hover: #8b5cf6;
   --success: #22c55e;
+  --color-error: #f87171;
   --radius: 8px;
   --radius-sm: 6px;
   --space: 8px;
@@ -20,4 +21,12 @@
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
   --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.5rem;
+  --layout-admin-max: 65rem;
+  --shadow-card: 0 1px 0 var(--border), 0 var(--space-lg) var(--space-xl) rgba(0, 0, 0, 0.2);
+  --color-surface-muted: var(--bg-soft);
+  --accent-tint: rgba(124, 58, 237, 0.12);
+  --success-tint: rgba(34, 197, 94, 0.12);
 }

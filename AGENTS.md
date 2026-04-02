@@ -22,8 +22,14 @@ Pre-commit runs `node scripts/check-structure.js` — do not add forbidden paths
 ## Commands
 
 ```bash
-# Dev: API + Vite on one port (default 3001)
+# Dev: API + Vite on one port (default 3001) — open http://localhost:3001
 npm run dev
+
+# Dev: Vite on 5173 + API on 3001 — run install:all once if client/node_modules missing
+npm run install:all
+npm run dev:split
+# If 3001 is busy: npm run dev:split:3002
+# or: npm run dev:api   and   npm run dev:client   in two terminals
 
 # Production-style: build client then `npm start`
 npm run serve
@@ -44,7 +50,8 @@ Env: load order is **root `.env`** then **`server/.env`** (see `server/server.js
 - Titles: `GET/POST /api/titles`, `GET/PATCH/DELETE /api/titles/:id`, `GET /api/titles/slug/:slug`, feed routes under `/api/titles/feed/...`.
 - **Related titles** (`title_relations`): `GET /api/titles/:id/related`, `POST /api/titles/:id/related` (body: `related_title_id`, `relation_type`), `DELETE /api/titles/:id/related/:relatedId`.
 - Lists: `GET/POST /api/user/list`, `PATCH/DELETE /api/user/list/:titleId`, …
-- Backup: `GET /api/backup/export`, `POST /api/backup/restore`, `POST /api/backup/merge`, optional `POST /api/backup/trigger-telegram`.
+- Admin: `GET /api/admin/session`, `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/stats` (same `requireAdmin` as mutating routes when `ADMIN_PASSWORD` set).
+- Backup: `GET /api/backup/export`, `POST /api/backup/restore`, `POST /api/backup/merge` (admin when `ADMIN_PASSWORD` set); optional `POST /api/backup/trigger-telegram` (browser-open Telegram only; not admin-gated, uses env + cooldown + optional secret).
 - Lookup: `GET /api/lookup` (TMDB/RAWG/etc. — keys from env).
 
 ## Frontend conventions

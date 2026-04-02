@@ -52,7 +52,7 @@ function IconTrash() {
   );
 }
 
-export default function BookmarkDirectoryCard({ bookmark, onEdit, onDelete }) {
+export default function BookmarkDirectoryCard({ bookmark, onEdit, onDelete, canManage = true }) {
   const displayTitle = bookmark.label?.trim() || hostFromUrl(bookmark.url);
   const catKey = bookmark.category?.trim() || 'general';
   const catDisplay = bookmarkCategoryLabel(catKey);
@@ -74,30 +74,32 @@ export default function BookmarkDirectoryCard({ bookmark, onEdit, onDelete }) {
             style={hasImage ? { backgroundImage: `url(${bookmark.image_url})` } : undefined}
           />
         </a>
-        <div
-          className="bookmark-dir-card__actions bookmark-dir-card__actions--overlay"
-          role="group"
-          aria-label="Bookmark actions"
-        >
-          <button
-            type="button"
-            className="bookmark-dir-card__btn bookmark-dir-card__btn--icon bookmark-dir-card__btn--ghost"
-            onClick={() => onEdit(bookmark)}
-            aria-label={`Edit ${displayTitle}`}
-            title="Edit"
+        {canManage ? (
+          <div
+            className="bookmark-dir-card__actions bookmark-dir-card__actions--overlay"
+            role="group"
+            aria-label="Bookmark actions"
           >
-            <IconEdit />
-          </button>
-          <button
-            type="button"
-            className="bookmark-dir-card__btn bookmark-dir-card__btn--icon bookmark-dir-card__btn--danger"
-            onClick={() => onDelete(bookmark.id)}
-            aria-label={`Remove ${displayTitle}`}
-            title="Remove"
-          >
-            <IconTrash />
-          </button>
-        </div>
+            <button
+              type="button"
+              className="bookmark-dir-card__btn bookmark-dir-card__btn--icon bookmark-dir-card__btn--ghost"
+              onClick={() => onEdit(bookmark)}
+              aria-label={`Edit ${displayTitle}`}
+              title="Edit"
+            >
+              <IconEdit />
+            </button>
+            <button
+              type="button"
+              className="bookmark-dir-card__btn bookmark-dir-card__btn--icon bookmark-dir-card__btn--danger"
+              onClick={() => onDelete(bookmark.id)}
+              aria-label={`Remove ${displayTitle}`}
+              title="Remove"
+            >
+              <IconTrash />
+            </button>
+          </div>
+        ) : null}
       </div>
       <div className="bookmark-dir-card__body">
         <span className="bookmark-dir-card__cat">{catDisplay}</span>

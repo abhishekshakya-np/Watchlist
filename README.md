@@ -1,6 +1,6 @@
 # Watchlist – React + Node + SQLite with backup/restore
 
-**One backend file + one React file** = full watchlist site (Home, Browse with search, detail pages, My lists, backup/restore).
+**One backend file + one React file** = full watchlist site (Home, Browse with search, detail pages, My lists, optional **admin** dashboard with login, backup/restore, and add/edit flows).
 
 **GitHub:** [abhishekshakya-np/Watchlist](https://github.com/abhishekshakya-np/Watchlist) · [Profile](https://github.com/abhishekshakya-np)
 
@@ -21,8 +21,11 @@ From the repo root:
 ```bash
 npm install
 cd server && npm install && cd ..
+cd client && npm install && cd ..
 npm run dev
 ```
+
+(Or once: **`npm run install:all`** from the repo root — installs root, `server/`, and `client/` deps.)
 
 Then open **http://localhost:3001** in your browser.
 
@@ -31,6 +34,8 @@ Then open **http://localhost:3001** in your browser.
 - **One process, one URL:** App and API both at **http://localhost:3001**.
 - **Hot reload:** Edit `client/src/App.jsx` or `client/src/styles/**/*.scss` and save — the browser updates without refresh.
 - **Server auto-restart:** Edit `server/server.js` (or `server/db.js`) and save — the server restarts; refresh the page if needed.
+
+**If you use Vite on port 5173:** the UI proxies `/api` to **127.0.0.1:3001** (override with **`VITE_API_PROXY_PORT`**). From the repo root run **`npm run install:all`** once if `client` deps are missing, then **`npm run dev:split`** (API + Vite). If **port 3001 is already in use** (e.g. another `npm run dev`), use **`npm run dev:split:3002`** instead. Easiest workflow is still **`npm run dev`** and open **http://localhost:3001** only.
 
 ### Production
 
@@ -55,7 +60,7 @@ If the remote repo already has content, pull first: `git pull origin main --allo
 
 ### Look up from web (optional)
 
-On **Add title** or **Edit title**, click **Look up online** to fetch details from the internet by type:
+From the **admin** area (**Add title** / **Edit title**), click **Look up online** to fetch details from the internet by type:
 
 | Type   | Source        | Env variable   | Key required |
 |--------|---------------|----------------|--------------|
@@ -81,21 +86,22 @@ If `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are set (in `.env` at repo root o
 1. **Helper bot:** Message [@userinfobot](https://t.me/userinfobot) (or any bot that replies with your id). Copy the number into `TELEGRAM_CHAT_ID=`. If another bot never answers, it cannot give you an id—use a different helper or method (2).
 2. **Your Watchlist bot:** Open the bot **@BotFather** gave you for this project (same token as `TELEGRAM_BOT_TOKEN`). Send `/start` **there** — not only in unrelated chats like @userinfokeepbot unless that account is literally the same bot. Then from `server/` run `npm run telegram-chat-id` and paste the printed line into `.env`.
 
-Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, default `0 4 * * *`). On Render that is **UTC** unless you set `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `America/New_York`). Omit the Telegram variables to disable this entirely. Set `TELEGRAM_BACKUP_ON_START=1` to send one backup each time the server starts listening on its port (localhost is ready; upload runs right after the `http://localhost:…` log). Set `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` to also trigger a backup when someone opens the site (SPA load); `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC` defaults to **300** so refreshes don’t spam Telegram. On Render, add the same Telegram env vars under **Environment**.
+Default schedule is **04:00** on the server clock (`TELEGRAM_BACKUP_CRON`, default `0 4 * * *`). On Render that is **UTC** unless you set `TELEGRAM_BACKUP_TIMEZONE` (IANA name, e.g. `America/New_York`). Omit the Telegram variables to disable this entirely. Set `TELEGRAM_BACKUP_ON_START=1` to send one backup each time the server starts listening on its port (localhost is ready; upload runs right after the `http://localhost:…` log). Set `TELEGRAM_BACKUP_ON_BROWSER_OPEN=1` to also trigger a backup when someone opens the site (SPA load); `TELEGRAM_BACKUP_BROWSER_COOLDOWN_SEC` defaults to **300** so refreshes don’t spam Telegram. That hook **does not require admin login**, even when **`ADMIN_PASSWORD`** is set, so Telegram backups still run for anonymous visitors. On Render, add the same Telegram env vars under **Environment**.
 
 ### 4. Use backup and restore
 
-- **Export:** In the UI, click **Download backup**. A file like `watchlist-backup-2025-03-03.json` is downloaded with `titles`, `user_list`, and `bookmarks`.
+- **Export / restore in the UI:** Open **Admin** (`/admin`), then **Backup and restore**. If **`ADMIN_PASSWORD`** is set, sign in first; the same cookie is used for **Download backup** and file restore.
+- **Export:** **Download backup** saves a file like `watchlist-backup-2025-03-03.json` with `titles`, `user_list`, and `bookmarks`.
 - **Restore:** Choose a previously saved backup JSON file. Full restore replaces titles and list data; if the file includes `tables.bookmarks`, bookmarks are replaced too (older exports without that key leave bookmarks as they are).
 
-You can also call the API directly:
+You can also call the API directly. With **`ADMIN_PASSWORD`** set, log in via **`POST /api/admin/login`** (JSON body `{"password":"…"}`) and pass the session cookie on subsequent requests (e.g. `curl -b cookies.txt -c cookies.txt …`).
 
 ```bash
-# Export (save to file)
-curl -o my-backup.json http://localhost:3001/api/backup/export
+# Export (save to file) — omit -b when ADMIN_PASSWORD is unset
+curl -b cookies.txt -o my-backup.json http://localhost:3001/api/backup/export
 
 # Restore (from file)
-curl -X POST http://localhost:3001/api/backup/restore -H "Content-Type: application/json" -d @my-backup.json
+curl -b cookies.txt -X POST http://localhost:3001/api/backup/restore -H "Content-Type: application/json" -d @my-backup.json
 ```
 
 ## Backup format
@@ -124,6 +130,7 @@ The **`docs/`** directory is **gitignored** — keep your own Markdown notes the
 
 ## Production notes
 
-- **Restore** should be protected (e.g. API key or admin-only) so only you can replace data.
+- Set **`ADMIN_PASSWORD`** (and optionally **`ADMIN_SESSION_SECRET`**) in the environment so only signed-in admins can change data or use backup/restore; see root **`.env.example`**. Without it, the app stays in open shared-edit mode (legacy behavior).
+- **Restore** is protected whenever **`ADMIN_PASSWORD`** is set.
 - For deployment, run the Node server on a host that persists the `server/data` folder (or mount a volume). The same backup/restore API works in production.
 - Use HTTPS in production; consider backing up the DB file or the export JSON regularly (e.g. cron calling `/api/backup/export` and saving to disk or S3).

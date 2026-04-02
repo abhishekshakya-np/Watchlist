@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { API } from '../api.js';
 
 export default function Backup() {
@@ -12,7 +13,7 @@ export default function Backup() {
     setError(null);
     setSuccess(null);
     try {
-      const r = await fetch(`${API}/backup/export`);
+      const r = await fetch(`${API}/backup/export`, { credentials: 'include' });
       if (!r.ok) throw new Error(await r.text());
       const blob = await r.blob();
       const name = r.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'watchlist-backup.json';
@@ -52,6 +53,7 @@ export default function Backup() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(backup),
+        credentials: 'include',
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || r.statusText);
@@ -75,7 +77,10 @@ export default function Backup() {
 
   return (
     <div className="page-content page-shell page-shell--backup">
-      <h2 className="page-title">Backup &amp; restore</h2>
+      <p className="admin-backup-crumb">
+        <Link to="/admin">← Admin dashboard</Link>
+      </p>
+      <h2 className="page-title">Backup and restore</h2>
       <p className="page-shell__intro">
         Download full JSON backup or restore from file. Exports include titles, your list, and bookmarks. Use <strong>Merge</strong> to add only titles and bookmark URLs that are not already present (older backup files without bookmarks leave bookmarks unchanged).
       </p>

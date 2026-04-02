@@ -172,7 +172,7 @@ export default function AddRelatedModal({ titleId, currentTitle, onClose, onAdde
             </div>
           )}
           <p className="modal-hint">
-            <Link to={`/add?related_to=${titleId}&relation_type=${relationType}`} onClick={onClose}>
+            <Link to={`/admin/add?related_to=${titleId}&relation_type=${relationType}`} onClick={onClose}>
               Add a title manually and link it
             </Link>
           </p>

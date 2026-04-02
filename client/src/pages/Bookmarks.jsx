@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getBookmarks, deleteBookmark } from '../api.js';
+import { useAdminAuth } from '../context/AdminAuthContext.jsx';
 import {
   BOOKMARK_CATEGORY_PRESETS,
   bookmarkCategoryLabel,
@@ -40,6 +41,7 @@ function sortBookmarks(list, sort) {
 }
 
 export default function Bookmarks() {
+  const { canMutate } = useAdminAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
@@ -150,9 +152,19 @@ export default function Bookmarks() {
     <div className="page-content page-shell page-shell--bookmarks bookmark-page">
       <h2 className="page-title">Bookmarks</h2>
       <p className="page-shell__intro">
-        Your saved links by category — separate from your media watchlist. Add new bookmarks from the header{' '}
-        <strong>Add</strong> menu or{' '}
-        <Link to="/add-bookmark">Add bookmark</Link>.
+        Your saved links by category — separate from your media watchlist.
+        {canMutate ? (
+          <>
+            {' '}
+            Add or edit bookmarks from the{' '}
+            <Link to="/admin">admin dashboard</Link> (Add bookmark).
+          </>
+        ) : (
+          <>
+            {' '}
+            <Link to="/admin/login?next=/admin/add-bookmark">Sign in as admin</Link> to add or edit bookmarks.
+          </>
+        )}
       </p>
 
       {listError ? (
@@ -211,6 +223,7 @@ export default function Bookmarks() {
                         bookmark={b}
                         onEdit={setEditingBookmark}
                         onDelete={handleDelete}
+                        canManage={canMutate}
                       />
                     </li>
                   ))}
