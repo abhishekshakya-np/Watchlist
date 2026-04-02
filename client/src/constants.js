@@ -73,6 +73,15 @@ export const SORT_OPTIONS = [
 
 export const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Book' };
 
+/** Placeholder for list progress field on title detail — wording matches media type */
+export function listProgressPlaceholder(mediaType) {
+  if (mediaType === 'series') return 'e.g. Ep 5 of 12';
+  if (mediaType === 'movie') return 'e.g. 45 min in, or notes';
+  if (mediaType === 'game') return 'e.g. Act 2, 10 h played';
+  if (mediaType === 'book') return 'e.g. Ch. 8, p. 142';
+  return 'e.g. episode, chapter, page, or playtime';
+}
+
 export const RELATION_TYPES = [
   { value: 'season', label: 'Season' },
   { value: 'part', label: 'Part' },

@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { addToList, updateListEntry, removeFromList } from '../api.js';
-import { LIST_SCORE_OPTIONS, STATUS_OPTIONS, formatListScore } from '../constants.js';
+import { LIST_SCORE_OPTIONS, STATUS_OPTIONS, formatListScore, listProgressPlaceholder } from '../constants.js';
 
 function statusLabel(value) {
   return STATUS_OPTIONS.find((o) => o.value === value)?.label || value;
 }
 
-export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = true }) {
+export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = true, mediaType }) {
   const location = useLocation();
+  const progressPlaceholder = listProgressPlaceholder(mediaType);
   const [status, setStatus] = useState(entry?.status || 'planning');
   const [score, setScore] = useState(() => {
     const raw = entry?.score;
@@ -137,10 +138,13 @@ export default function ListScoreWidget({ titleId, entry, onUpdate, canEdit = tr
               Older rating saved as <strong>{entry.score}</strong>. Pick 1–4 above to replace it.
             </p>
           ) : null}
-          <label className="widget-label">Progress</label>
+          <label className="widget-label" htmlFor="list-progress-input">
+            Progress
+          </label>
           <input
+            id="list-progress-input"
             type="text"
-            placeholder="e.g. 5/12 eps"
+            placeholder={progressPlaceholder}
             value={progress}
             onChange={(e) => setProgress(e.target.value)}
             onBlur={() => save({ progress: progress || undefined })}
