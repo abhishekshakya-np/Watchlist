@@ -180,6 +180,18 @@ function requireAdmin(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
+/** user_list.score: null/undefined/blank clears; 1–4 = personal rating (bad → masterpiece). */
+function normalizeUserListScore(score) {
+  if (score === undefined || score === null || score === '') return null;
+  const raw = typeof score === 'string' ? score.trim() : score;
+  if (raw === '') return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 4) {
+    throw new Error('Rating must be blank or a whole number from 1 (bad) to 4 (masterpiece).');
+  }
+  return n;
+}
+
 function safeEqualPassword(input, expected) {
   if (typeof input !== 'string' || typeof expected !== 'string') return false;
   const a = Buffer.from(input, 'utf8');
@@ -774,7 +786,13 @@ app.get('/api/user/list', async (req, res) => {
 app.post('/api/user/list', requireAdmin, async (req, res) => {
   try {
     const { title_id, status = 'planning', score, progress } = req.body;
-    await db.run('INSERT INTO user_list (user_id, title_id, status, score, progress) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, title_id) DO UPDATE SET status=excluded.status, score=excluded.score, progress=excluded.progress', [DEMO_USER, title_id, status, score ?? null, progress ?? null]);
+    let scoreNorm;
+    try {
+      scoreNorm = normalizeUserListScore(score);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+    await db.run('INSERT INTO user_list (user_id, title_id, status, score, progress) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, title_id) DO UPDATE SET status=excluded.status, score=excluded.score, progress=excluded.progress', [DEMO_USER, title_id, status, scoreNorm, progress ?? null]);
     const row = await db.queryOne('SELECT ul.*, t.slug, t.title, t.cover_image, t.media_type FROM user_list ul JOIN titles t ON t.id = ul.title_id WHERE ul.user_id = ? AND ul.title_id = ?', [DEMO_USER, title_id]);
     res.status(201).json(row);
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -782,7 +800,20 @@ app.post('/api/user/list', requireAdmin, async (req, res) => {
 app.patch('/api/user/list/:titleId', requireAdmin, async (req, res) => {
   try {
     const { status, score, progress } = req.body;
-    const r = await db.run('UPDATE user_list SET status=COALESCE(?,status), score=?, progress=COALESCE(?,progress) WHERE user_id=? AND title_id=?', [status ?? null, score ?? null, progress ?? null, DEMO_USER, req.params.titleId]);
+    const existing = await db.queryOne('SELECT * FROM user_list WHERE user_id = ? AND title_id = ?', [DEMO_USER, req.params.titleId]);
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+    let nextScore = existing.score;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'score')) {
+      try {
+        nextScore = normalizeUserListScore(score);
+      } catch (e) {
+        return res.status(400).json({ error: e.message });
+      }
+    }
+    const r = await db.run(
+      'UPDATE user_list SET status=COALESCE(?,status), score=?, progress=COALESCE(?,progress) WHERE user_id=? AND title_id=?',
+      [status ?? null, nextScore, progress ?? null, DEMO_USER, req.params.titleId],
+    );
     if (r.changes === 0) return res.status(404).json({ error: 'Not found' });
     const row = await db.queryOne('SELECT ul.*, t.slug, t.title, t.cover_image, t.media_type FROM user_list ul JOIN titles t ON t.id = ul.title_id WHERE ul.user_id = ? AND ul.title_id = ?', [DEMO_USER, req.params.titleId]);
     res.json(row);

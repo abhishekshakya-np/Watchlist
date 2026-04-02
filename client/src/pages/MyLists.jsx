@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserList } from '../api.js';
-import { STATUS_LABELS } from '../constants.js';
+import { STATUS_LABELS, formatListScore } from '../constants.js';
 import EmptyState from '../components/EmptyState.jsx';
 
 const STATUS_ORDER = ['current', 'planning', 'completed', 'paused', 'dropped'];
@@ -65,7 +65,8 @@ export default function MyLists() {
                       <div className="list-item-body">
                         <Link to={`/title/${item.slug}`} className="list-item-title">{item.title}</Link>
                         <span className="list-item-meta">
-                          {item.media_type} · {item.score != null ? `Score ${item.score}` : '—'}
+                          {item.media_type} ·{' '}
+                          {formatListScore(item.score) ?? '—'}
                         </span>
                       </div>
                     </li>

@@ -94,7 +94,13 @@ export default function TitleDetail() {
               {deleteError && <p className="form-error detail-action-error">{deleteError}</p>}
             </div>
           ) : null}
-          <ListScoreWidget titleId={title.id} entry={entry} onUpdate={refreshEntry} canEdit={canMutate} />
+          <ListScoreWidget
+            titleId={title.id}
+            entry={entry}
+            onUpdate={refreshEntry}
+            canEdit={canMutate}
+            mediaType={title.media_type}
+          />
         </div>
       </div>
       {showAddRelated && canMutate ? (

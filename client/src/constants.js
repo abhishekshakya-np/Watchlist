@@ -73,6 +73,15 @@ export const SORT_OPTIONS = [
 
 export const MEDIA_LABELS = { series: 'Series', movie: 'Movie', game: 'Game', book: 'Book' };
 
+/** Placeholder for list progress field on title detail — wording matches media type */
+export function listProgressPlaceholder(mediaType) {
+  if (mediaType === 'series') return 'e.g. Ep 5 of 12';
+  if (mediaType === 'movie') return 'e.g. 45 min in, or notes';
+  if (mediaType === 'game') return 'e.g. Act 2, 10 h played';
+  if (mediaType === 'book') return 'e.g. Ch. 8, p. 142';
+  return 'e.g. episode, chapter, page, or playtime';
+}
+
 export const RELATION_TYPES = [
   { value: 'season', label: 'Season' },
   { value: 'part', label: 'Part' },
@@ -88,6 +97,30 @@ export const STATUS_OPTIONS = [
   { value: 'paused', label: 'Paused' },
   { value: 'dropped', label: 'Dropped' },
 ];
+
+/** Personal list rating (stored in user_list.score) — not the same as TMDB-style title averages */
+export const LIST_SCORE_OPTIONS = [
+  { value: '1', label: '1 — Bad' },
+  { value: '2', label: '2 — Good' },
+  { value: '3', label: '3 — Best' },
+  { value: '4', label: '4 — Masterpiece' },
+];
+
+export const LIST_SCORE_LABELS = {
+  1: 'Bad',
+  2: 'Good',
+  3: 'Best',
+  4: 'Masterpiece',
+};
+
+/** Short label for lists; legacy values outside 1–4 show as “Old scale: n”. */
+export function formatListScore(score) {
+  if (score == null || score === '') return null;
+  const n = Number(score);
+  if (!Number.isInteger(n)) return null;
+  if (n >= 1 && n <= 4) return LIST_SCORE_LABELS[n] ?? String(n);
+  return `Old scale: ${n}`;
+}
 
 export const STATUS_LABELS = {
   planning: 'Planning',

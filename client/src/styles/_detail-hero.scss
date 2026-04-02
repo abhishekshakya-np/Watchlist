@@ -67,8 +67,31 @@
 
   .btn-save-list {
     width: 100%;
-    margin-bottom: var(--space);
   }
+}
+
+.list-score-widget__save-block {
+  margin-bottom: var(--space-lg);
+
+  .btn-save-list {
+    margin-bottom: 0;
+  }
+}
+
+.list-score-widget__saved-status {
+  display: block;
+  margin: var(--space) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--success);
+}
+
+.list-score-widget__legacy {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: calc(var(--space-lg) * -1) 0 var(--space-lg);
+  line-height: 1.5;
 }
 
 .detail-actions {
@@ -191,14 +214,8 @@
   margin-bottom: 4px;
 }
 
-.list-score-saved {
-  font-size: 12px;
-  color: var(--accent);
-  margin-left: var(--space);
-}
-
 .btn-remove {
-  margin-top: var(--space);
+  margin-top: 0;
   font-size: 13px;
   color: var(--text-muted);
 

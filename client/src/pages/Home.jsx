@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  getBookmarks,
   getFeedTrending,
   getFeedTop,
   getFeedRecent,
   getFeedUpcoming,
   getUserList,
 } from '../api.js';
+import HomeBookmarkCard from '../components/HomeBookmarkCard.jsx';
 import HomeTitleCard from '../components/HomeTitleCard.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { HOME_GENRE_LINKS, MEDIA_LABELS, RELEASE_STATUSES } from '../constants.js';
@@ -59,6 +61,7 @@ export default function Home() {
   const type = searchParams.get('type') || 'all';
   const t = type === 'all' ? 'all' : type;
   const [continueWatching, setContinueWatching] = useState([]);
+  const [bookmarksRow, setBookmarksRow] = useState([]);
   const [latest, setLatest] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [trending, setTrending] = useState([]);
@@ -80,6 +83,7 @@ export default function Home() {
       getFeedTrending(t, 5),
       getFeedTop(t, 5),
       getFeedRecent(t, 5),
+      getBookmarks(),
     ])
       .then((results) => {
         if (loadId !== loadGenRef.current) return;
@@ -89,8 +93,11 @@ export default function Home() {
         const tr = ok(results[3]);
         const tp = ok(results[4]);
         const rc = ok(results[5]);
+        const bookmarksRaw = ok(results[6]);
         const current = list.filter((e) => e.status === 'current').map(listEntryToTitle);
         setContinueWatching(current.slice(0, 12));
+        const bookmarksSorted = [...bookmarksRaw].sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 12);
+        setBookmarksRow(bookmarksSorted);
         setLatest(recentFeed);
         setUpcoming(upcomingFeed);
         setTrending(tr);
@@ -114,21 +121,21 @@ export default function Home() {
       <div className="home-page__cols">
         <div className="home-page__main">
           <HomeSectionRow
-            id="home-continue"
-            icon="⏱"
-            title="Continue watching"
-            viewMoreTo={`/lists${typeQuery}`}
-            viewMoreLabel="View more"
+            id="home-bookmarks"
+            icon="🔖"
+            title="Bookmarks"
+            viewMoreTo="/bookmarks"
+            viewMoreLabel="View all"
           >
-            {continueWatching.length === 0 ? (
+            {bookmarksRow.length === 0 ? (
               <EmptyState
-                title="Nothing in progress"
-                message="Mark titles as Current on your list or open a title to track progress."
+                title="No bookmarks yet"
+                message="Save links on the Bookmarks page — they’ll show up here for quick access."
               />
             ) : (
               <div className="home-grid">
-                {continueWatching.map((title) => (
-                  <HomeTitleCard key={title.id} title={title} />
+                {bookmarksRow.map((b) => (
+                  <HomeBookmarkCard key={b.id} bookmark={b} />
                 ))}
               </div>
             )}
@@ -146,6 +153,27 @@ export default function Home() {
             ) : (
               <div className="home-grid">
                 {latest.map((title) => (
+                  <HomeTitleCard key={title.id} title={title} />
+                ))}
+              </div>
+            )}
+          </HomeSectionRow>
+
+          <HomeSectionRow
+            id="home-continue"
+            icon="⏱"
+            title="Continue watching"
+            viewMoreTo={`/lists${typeQuery}`}
+            viewMoreLabel="View more"
+          >
+            {continueWatching.length === 0 ? (
+              <EmptyState
+                title="Nothing in progress"
+                message="Mark titles as Current on your list or open a title to track progress."
+              />
+            ) : (
+              <div className="home-grid">
+                {continueWatching.map((title) => (
                   <HomeTitleCard key={title.id} title={title} />
                 ))}
               </div>
