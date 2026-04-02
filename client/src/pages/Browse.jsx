@@ -54,54 +54,68 @@ export default function Browse() {
     getFeedTop(type === 'all' ? 'all' : type, 6).then(setSidebar);
   }, [type]);
   const trimmedQ = q.trim();
+  const showClearSearch = Boolean(trimmedQ);
   const emptyTitle = trimmedQ ? 'No results' : 'No titles match';
   const emptyMsg = trimmedQ
     ? `No titles match “${trimmedQ}”. Try different words or filters.`
     : 'Try changing filters, clear all, or add titles from Add title.';
   const listClassName = `title-list title-list--browse title-list--browse-${layoutDensity}`;
+
+  const handleSearchChange = (e) => {
+    const next = new URLSearchParams(searchParams);
+    if (e.target.value.trim()) next.set('q', e.target.value);
+    else next.delete('q');
+    setSearchParams(next);
+  };
+
+  const handleClearSearch = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('q');
+    setSearchParams(next);
+  };
+
   return (
     <div className="page-shell page-shell--browse browse-page">
       <h2 className="page-title">Browse</h2>
-      <div className="search-input-wrap">
+      <div className="browse-search" role="search" aria-label="Search browse titles" aria-busy={loading}>
         <label htmlFor="browse-search-input" className="visually-hidden">
           Search titles by name
         </label>
-        <input
-          id="browse-search-input"
-          type="search"
-          placeholder="Search titles by name…"
-          value={q}
-          onChange={(e) => {
-            const next = new URLSearchParams(searchParams);
-            if (e.target.value.trim()) next.set('q', e.target.value);
-            else next.delete('q');
-            setSearchParams(next);
-          }}
-          className="search-input search-input--browse"
-          autoComplete="off"
-        />
-      </div>
-      <FilterBar resultCount={titles.length} />
-      <div className="browse-view-toggle" role="group" aria-labelledby="browse-view-label">
-        <span className="browse-view-toggle__label" id="browse-view-label">
-          Layout
-        </span>
-        <div className="browse-view-toggle__buttons">
-          {BROWSE_LAYOUT_OPTIONS.map((opt) => (
+        <div className={`browse-search__field${loading ? ' browse-search__field--busy' : ''}`}>
+          <span className="browse-search__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+              <path d="M16 16L20 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </span>
+          <input
+            id="browse-search-input"
+            type="search"
+            placeholder="Search titles by name…"
+            value={q}
+            onChange={handleSearchChange}
+            className="browse-search__input"
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+          {loading ? <span className="browse-search__spinner" aria-hidden="true" /> : null}
+          {showClearSearch ? (
             <button
-              key={opt.id}
               type="button"
-              className={`browse-view-toggle__btn${layoutDensity === opt.id ? ' browse-view-toggle__btn--active' : ''}`}
-              onClick={() => setLayoutDensity(opt.id)}
-              aria-pressed={layoutDensity === opt.id}
-              aria-label={opt.label}
-              title={opt.label}
+              className="browse-search__clear"
+              onClick={handleClearSearch}
+              aria-label="Clear search"
             >
-              {opt.shortLabel}
+              <span aria-hidden="true">×</span>
             </button>
-          ))}
+          ) : null}
         </div>
       </div>
+      <FilterBar
+        resultCount={titles.length}
+        layoutDensity={layoutDensity}
+        onLayoutDensityChange={setLayoutDensity}
+      />
       {loading ? (
         <p className="loading">Loading…</p>
       ) : titles.length === 0 ? (

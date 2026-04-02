@@ -53,11 +53,16 @@
 
 .search-input-wrap {
   margin-bottom: var(--space-lg);
+  width: 100%;
 }
 
 .search-input {
   width: 100%;
   max-width: 400px;
+}
+
+.search-input.search-input--browse {
+  max-width: none;
 }
 
 .visually-hidden {
